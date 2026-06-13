@@ -1,8 +1,9 @@
-import { type Server } from "node:http";
-import { type Socket } from "node:net";
+import type { Server } from "node:http";
+import type { Socket } from "node:net";
 
 import app from "./app.js";
 import { env } from "./config/env.js";
+import { connectDatabase, disconnectDatabase } from "./config/prisma.js";
 import { logger } from "./utils/logger.js";
 
 let server: Server | undefined;
@@ -26,8 +27,8 @@ const closeHttpServer = async (): Promise<void> => {
     });
 
     /**
-     * Close idle keep-alive connections immediately.
-     * Active requests still get a chance to finish.
+     * Stop idle keep-alive connections immediately.
+     * Active requests still get time to complete until SHUTDOWN_TIMEOUT_MS.
      */
     server?.closeIdleConnections?.();
   });
@@ -41,20 +42,35 @@ const destroyOpenSockets = (): void => {
   sockets.clear();
 };
 
+const safeDisconnectDatabase = async (): Promise<void> => {
+  try {
+    await disconnectDatabase();
+  } catch (error) {
+    logger.error({ err: error }, "Failed to disconnect database cleanly.");
+  }
+};
+
 const gracefulShutdown = async (
   signal: string,
   exitCode = 0,
-): Promise<void> => {
+): Promise<never | void> => {
   if (isShuttingDown) {
     return;
   }
 
   isShuttingDown = true;
 
-  logger.info(`${signal} received. Starting graceful shutdown...`);
+  logger.info({ signal }, "Graceful shutdown started.");
 
   const forceExitTimer = setTimeout(() => {
-    logger.error("Graceful shutdown timed out. Forcing exit.");
+    logger.error(
+      {
+        signal,
+        timeoutMs: env.SHUTDOWN_TIMEOUT_MS,
+        openSockets: sockets.size,
+      },
+      "Graceful shutdown timed out. Forcing exit.",
+    );
 
     destroyOpenSockets();
 
@@ -64,71 +80,91 @@ const gracefulShutdown = async (
   forceExitTimer.unref();
 
   try {
-    /**
-     * Later, when we add PostgreSQL/Prisma/Redis/etc,
-     * cleanup should happen here after closing the HTTP server.
-     */
     await closeHttpServer();
+
+    logger.info("HTTP server closed.");
+
+    await safeDisconnectDatabase();
 
     clearTimeout(forceExitTimer);
 
-    logger.info("HTTP server closed.");
+    logger.info({ signal, exitCode }, "Graceful shutdown completed.");
 
     process.exit(exitCode);
   } catch (error) {
     clearTimeout(forceExitTimer);
 
-    logger.error(error, "Graceful shutdown failed");
+    logger.error({ err: error }, "Graceful shutdown failed.");
 
     destroyOpenSockets();
+
+    await safeDisconnectDatabase();
 
     process.exit(1);
   }
 };
 
-const startServer = (): void => {
+const configureServerTimeouts = (httpServer: Server): void => {
+  httpServer.requestTimeout = env.REQUEST_TIMEOUT_MS;
+  httpServer.headersTimeout = env.HEADERS_TIMEOUT_MS;
+  httpServer.keepAliveTimeout = env.KEEP_ALIVE_TIMEOUT_MS;
+};
+
+const trackOpenSockets = (httpServer: Server): void => {
+  httpServer.on("connection", (socket: Socket) => {
+    sockets.add(socket);
+
+    socket.once("close", () => {
+      sockets.delete(socket);
+    });
+  });
+};
+
+const startServer = async (): Promise<void> => {
   try {
-    server = app.listen(env.PORT, "0.0.0.0", () => {
+    await connectDatabase();
+
+    const serverInstance = app.listen(env.PORT, "0.0.0.0", () => {
       logger.info(
         {
           port: env.PORT,
+          host: "0.0.0.0",
           environment: env.NODE_ENV,
           healthCheck: `http://localhost:${env.PORT}/health`,
         },
-        "Server started successfully",
+        "Server started successfully.",
       );
     });
 
-    server.requestTimeout = env.REQUEST_TIMEOUT_MS;
-    server.headersTimeout = env.HEADERS_TIMEOUT_MS;
-    server.keepAliveTimeout = env.KEEP_ALIVE_TIMEOUT_MS;
+    server = serverInstance;
 
-    server.on("connection", (socket) => {
-      sockets.add(socket);
+    configureServerTimeouts(serverInstance);
+    trackOpenSockets(serverInstance);
 
-      socket.on("close", () => {
-        sockets.delete(socket);
-      });
-    });
-
-    server.on("error", (error: Error & { code?: string }) => {
-      logger.error(error, "Server connection error");
+    serverInstance.on("error", (error: Error & { code?: string }) => {
+      logger.error({ err: error }, "Server error.");
 
       if (error.code === "EADDRINUSE") {
         logger.error(
-          `Port ${env.PORT} is already in use. Free the port or use a different PORT.`,
+          {
+            port: env.PORT,
+          },
+          "Port is already in use.",
         );
       }
 
       void gracefulShutdown("SERVER_ERROR", 1);
     });
   } catch (error) {
-    logger.error(error, "Failed to start server");
+    logger.fatal({ err: error }, "Failed to start server.");
+
+    await safeDisconnectDatabase();
+
     process.exit(1);
   }
 };
 
-startServer();
+void startServer();
 
 process.once("SIGINT", () => {
   void gracefulShutdown("SIGINT");
@@ -138,14 +174,14 @@ process.once("SIGTERM", () => {
   void gracefulShutdown("SIGTERM");
 });
 
-process.once("uncaughtException", (error) => {
-  logger.fatal(error, "UNCAUGHT EXCEPTION");
+process.once("uncaughtException", (error: Error) => {
+  logger.fatal({ err: error }, "Uncaught exception.");
 
   void gracefulShutdown("UNCAUGHT_EXCEPTION", 1);
 });
 
-process.once("unhandledRejection", (reason) => {
-  logger.fatal({ reason }, "UNHANDLED REJECTION");
+process.once("unhandledRejection", (reason: unknown) => {
+  logger.fatal({ reason }, "Unhandled promise rejection.");
 
   void gracefulShutdown("UNHANDLED_REJECTION", 1);
 });
