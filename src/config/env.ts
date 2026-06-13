@@ -84,6 +84,16 @@ const envSchema = z
 
     KEEP_ALIVE_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
 
+    DATABASE_URL: z
+      .string()
+      .min(1, "DATABASE_URL is required")
+      .url("DATABASE_URL must be a valid URL")
+      .refine(
+        (url) =>
+          url.startsWith("postgresql://") || url.startsWith("postgres://"),
+        "DATABASE_URL must be a PostgreSQL connection string",
+      ),
+
     TRUST_PROXY: z.preprocess(booleanFromString, z.boolean().default(false)),
   })
   .superRefine((env, ctx) => {
