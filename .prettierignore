@@ -1,0 +1,8 @@
+dist
+node_modules
+coverage
+package-lock.json
+package.json
+tsconfig.json
+.env
+.env.example
