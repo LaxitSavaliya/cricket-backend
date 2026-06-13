@@ -1,10 +1,6 @@
 import compression from "compression";
 import cors from "cors";
-import express, {
-  type Application,
-  type Request,
-  type Response,
-} from "express";
+import express, { type Application } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -14,6 +10,7 @@ import {
   globalErrorHandler,
   notFoundHandler,
 } from "./middlewares/error.middleware.js";
+import routes from "./routes/index.js";
 import ApiError from "./utils/ApiError.js";
 
 const app: Application = express();
@@ -130,32 +127,7 @@ app.use(
   }),
 );
 
-app.get("/", (_req: Request, res: Response) => {
-  return res.status(200).json({
-    success: true,
-    message: "Cricket backend API is running",
-  });
-});
-
-app.get("/health", (_req: Request, res: Response) => {
-  return res.status(200).json({
-    success: true,
-    message: "Service healthy",
-    data: {
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString(),
-      environment: env.NODE_ENV,
-    },
-  });
-});
-
-/**
- * TODO:
- * Add API routes here later.
- *
- * Example:
- * app.use("/api/v1/matches", matchRoutes);
- */
+app.use(routes);
 
 app.use(notFoundHandler);
 
