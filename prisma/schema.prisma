@@ -6,3 +6,27 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum PlayerRole {
+  BATSMAN
+  BOWLER
+  ALL_ROUNDER
+  WICKET_KEEPER
+  WICKET_KEEPER_BATSMAN
+  WICKET_KEEPER_ALL_ROUNDER
+}
+
+model Player {
+  id          String     @id @default(cuid())
+  playerName  String
+  displayName String?
+  photoUrl    String?
+  role        PlayerRole
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([playerName])
+  @@index([displayName])
+  @@index([role])
+}
