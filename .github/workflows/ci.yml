@@ -10,6 +10,9 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cricket_db?schema=public
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -25,8 +28,6 @@ jobs:
 
       - name: Generate Prisma Client
         run: npm run prisma:generate
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cricket_db?schema=public
 
       - name: Check code formatting
         run: npm run format:check
