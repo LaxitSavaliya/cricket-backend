@@ -16,17 +16,292 @@ enum PlayerRole {
   WICKET_KEEPER_ALL_ROUNDER
 }
 
+enum BoundaryType {
+  FOUR
+  SIX
+}
+
+enum NoBallReason {
+  OVERSTEP
+  BACK_FOOT_FAULT
+  ILLEGAL_ACTION
+  UNDERARM
+  BOUNCES_MORE_THAN_ONCE
+  ROLLING_BALL
+  PITCHED_OFF_PITCH
+  BALL_COMES_TO_REST
+  BOUNCER_OVER_HEAD
+  HIGH_FULL_TOSS
+  TOO_MANY_BOUNCERS
+  DANGEROUS_BOWLING
+  BOWLER_BREAKS_WICKET
+  FIELDER_INTERCEPTS_DELIVERY
+  WICKET_KEEPER_POSITION
+  FIELDING_RESTRICTION
+  OTHER
+}
+
+enum WideReason {
+  OUTSIDE_OFF
+  DOWN_LEG
+  TOO_FAR_FROM_BATTER
+  OTHER
+}
+
+enum PenaltyRunReason {
+  BALL_HIT_HELMET_ON_GROUND
+  FAKE_FIELDING
+  DELIBERATE_SHORT_RUN
+  BALL_TAMPERING
+  TIME_WASTING
+  PLAYER_MISCONDUCT
+  FIELDING_RESTRICTION
+  PITCH_DAMAGE
+  OTHER
+}
+
+enum DismissalType {
+  BOWLED
+  CAUGHT
+  LBW
+  RUN_OUT
+  STUMPED
+  HIT_WICKET
+  HIT_BALL_TWICE
+  OBSTRUCTING_FIELD
+  TIMED_OUT
+  RETIRED_OUT
+}
+
+enum DeadBallReason {
+  OUTSIDE_PERSON_ON_FIELD
+  BATTER_DISTRACTED
+  PLAYER_INJURY
+  BALL_NOT_DELIVERED
+  UMPIRE_INTERVENTION
+  OTHER
+}
+
+enum MatchFormat {
+  ODI
+  T20
+  T10
+}
+
+enum MatchStatus {
+  UPCOMING
+  LIVE
+  COMPLETED
+  CANCELLED
+  ABANDONED
+}
+
+enum MatchResultType {
+  NORMAL
+  TIE
+  NO_RESULT
+  CANCELLED
+  ABANDONED
+}
+
+enum TossDecision {
+  BAT
+  BOWL
+}
+
 model Player {
   id          String     @id @default(cuid())
   playerName  String
-  displayName String?
+  displayName String
   photoUrl    String?
   role        PlayerRole
+
+  matchPlayers MatchPlayer[]
+
+  strikerBalls       Ball[] @relation("BallStriker")
+  nonStrikerBalls    Ball[] @relation("BallNonStriker")
+  bowledBalls        Ball[] @relation("BallBowler")
+  dismissedBalls     Ball[] @relation("BallDismissedPlayer")
+  fieldedBalls       Ball[] @relation("BallFielder")
+  assistFieldedBalls Ball[] @relation("BallAssistFielder")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([playerName, displayName])
   @@index([playerName])
   @@index([displayName])
   @@index([role])
+  @@map("players")
+}
+
+model Team {
+  id        String  @id @default(cuid())
+  teamName  String
+  shortName String?
+  logoUrl   String?
+
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+  tossMatches Match[] @relation("TossWinnerTeam")
+  wonMatches  Match[] @relation("WinnerTeam")
+
+  matchPlayers MatchPlayer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamName])
+  @@index([shortName])
+  @@map("teams")
+}
+
+model Match {
+  id          String      @id @default(cuid())
+  title       String?
+  matchFormat MatchFormat
+  status      MatchStatus @default(COMPLETED)
+
+  matchDate DateTime @default(now())
+
+  venue String?
+  city  String?
+
+  homeTeamId String
+  awayTeamId String
+
+  tossWinnerTeamId String?
+  tossDecision     TossDecision?
+
+  winnerTeamId String?
+  resultType   MatchResultType @default(NORMAL)
+
+  homeTeam Team @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Restrict)
+
+  awayTeam Team @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Restrict)
+
+  tossWinnerTeam Team? @relation("TossWinnerTeam", fields: [tossWinnerTeamId], references: [id], onDelete: Restrict)
+
+  winnerTeam Team? @relation("WinnerTeam", fields: [winnerTeamId], references: [id], onDelete: Restrict)
+
+  matchPlayers MatchPlayer[]
+  balls        Ball[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([matchDate])
+  @@index([status])
+  @@index([matchFormat])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([tossWinnerTeamId])
+  @@index([winnerTeamId])
+  @@map("matches")
+}
+
+model MatchPlayer {
+  id String @id @default(cuid())
+
+  matchId  String
+  teamId   String
+  playerId String
+
+  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Restrict)
+
+  isPlayingEleven Boolean @default(false)
+  isCaptain       Boolean @default(false)
+  isViceCaptain   Boolean @default(false)
+  isWicketKeeper  Boolean @default(false)
+  battingOrder    Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([matchId, playerId])
+  @@unique([matchId, teamId, battingOrder])
+  @@index([matchId])
+  @@index([teamId])
+  @@index([playerId])
+  @@index([matchId, teamId])
+  @@map("match_players")
+}
+
+model Ball {
+  id String @id @default(cuid())
+
+  matchId String
+  match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  inningsNo  Int
+  deliveryNo Int
+  overNo     Int
+  ballNo     Int
+
+  strikerId    String
+  nonStrikerId String
+  bowlerId     String
+
+  striker Player @relation("BallStriker", fields: [strikerId], references: [id], onDelete: Restrict)
+
+  nonStriker Player @relation("BallNonStriker", fields: [nonStrikerId], references: [id], onDelete: Restrict)
+
+  bowler Player @relation("BallBowler", fields: [bowlerId], references: [id], onDelete: Restrict)
+
+  boundaryType BoundaryType?
+
+  isWide    Boolean @default(false)
+  isNoBall  Boolean @default(false)
+  isBye     Boolean @default(false)
+  isLegBye  Boolean @default(false)
+  isPenalty Boolean @default(false)
+
+  isDeadBall     Boolean         @default(false)
+  deadBallReason DeadBallReason?
+
+  noBallReasons NoBallReason[] @default([])
+  wideReason    WideReason?
+
+  penaltyRunReason PenaltyRunReason?
+
+  batterRuns  Int @default(0)
+  noBallRuns  Int @default(0)
+  wideRuns    Int @default(0)
+  byeRuns     Int @default(0)
+  legByeRuns  Int @default(0)
+  penaltyRuns Int @default(0)
+
+  extraRuns Int @default(0)
+  totalRuns Int @default(0)
+
+  isWicket          Boolean        @default(false)
+  dismissalType     DismissalType?
+  dismissedPlayerId String?
+
+  dismissedPlayer Player? @relation("BallDismissedPlayer", fields: [dismissedPlayerId], references: [id], onDelete: Restrict)
+
+  fielderId       String?
+  assistFielderId String?
+
+  fielder Player? @relation("BallFielder", fields: [fielderId], references: [id], onDelete: Restrict)
+
+  assistFielder Player? @relation("BallAssistFielder", fields: [assistFielderId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([matchId, inningsNo, deliveryNo])
+  @@index([matchId])
+  @@index([matchId, inningsNo])
+  @@index([matchId, inningsNo, overNo])
+  @@index([matchId, inningsNo, overNo, ballNo])
+  @@index([strikerId])
+  @@index([nonStrikerId])
+  @@index([bowlerId])
+  @@index([dismissedPlayerId])
+  @@index([fielderId])
+  @@index([assistFielderId])
+  @@map("balls")
 }
