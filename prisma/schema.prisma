@@ -176,6 +176,14 @@ model Match {
   winnerTeamId String?
   resultType   MatchResultType @default(NORMAL)
 
+  firstIningRuns    Int @default(0)
+  firstIningWickets Int @default(0)
+  firstIningOvers   Int @default(0)
+
+  secondIningRuns    Int @default(0)
+  secondIningWickets Int @default(0)
+  secondIningOvers   Int @default(0)
+
   homeTeam Team @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Restrict)
 
   awayTeam Team @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Restrict)
