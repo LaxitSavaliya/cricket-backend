@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "match_players" ADD COLUMN     "firstIningOvers" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "firstIningRuns" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "firstIningWickets" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "secondIningOvers" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "secondIningRuns" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "secondIningWickets" INTEGER NOT NULL DEFAULT 0;

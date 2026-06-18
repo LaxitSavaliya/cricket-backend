@@ -466,6 +466,14 @@ const seedDatabase = async (): Promise<void> => {
         },
         resultType: MatchResultType.NORMAL,
 
+        firstIningRuns: 118,
+        firstIningWickets: 4,
+        firstIningOvers: 10,
+
+        secondIningRuns: 106,
+        secondIningWickets: 5,
+        secondIningOvers: 10,
+
         matchPlayers: {
           createMany: {
             data: [
