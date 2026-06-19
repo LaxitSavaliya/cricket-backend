@@ -184,6 +184,8 @@ model Match {
   secondIningWickets Int @default(0)
   secondIningOvers   Int @default(0)
 
+  matchTextResult String @default("")
+
   homeTeam Team @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Restrict)
 
   awayTeam Team @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Restrict)
