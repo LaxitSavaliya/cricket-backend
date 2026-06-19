@@ -8,6 +8,7 @@ const matchListSelect = {
   matchFormat: true,
   status: true,
   matchDate: true,
+  matchTextResult: true,
   firstIningRuns: true,
   firstIningWickets: true,
   firstIningOvers: true,
