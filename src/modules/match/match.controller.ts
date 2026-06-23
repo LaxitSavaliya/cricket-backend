@@ -2,13 +2,26 @@ import type { Request, Response } from "express";
 
 import { asyncHandler } from "../../common/asyncHandler.js";
 import { sendResponse } from "../../common/sendResponse.js";
-import { getAllMatches, getMatchById } from "./match.service.js";
+import type {
+  MatchDetails,
+  MatchListItem,
+  MatchPlayersResponse,
+} from "./match.service.js";
+import {
+  getAllMatches,
+  getMatchById,
+  getPlayersByMatchId,
+} from "./match.service.js";
+
+interface MatchIdParams {
+  id: string;
+}
 
 export const getMatches = asyncHandler(
   async (_req: Request, res: Response): Promise<void> => {
-    const matches = await getAllMatches();
+    const matches: MatchListItem[] = await getAllMatches();
 
-    sendResponse({
+    sendResponse<MatchListItem[]>({
       res,
       message: "Matches fetched successfully",
       data: matches,
@@ -16,15 +29,28 @@ export const getMatches = asyncHandler(
   },
 );
 
-export const getMatch = asyncHandler(
-  async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+export const getMatch = asyncHandler<MatchIdParams>(
+  async (req, res): Promise<void> => {
     const { id } = req.params;
-    const match = await getMatchById(id);
+    const match: MatchDetails = await getMatchById(id);
 
-    sendResponse({
+    sendResponse<MatchDetails>({
       res,
       message: "Match fetched successfully",
       data: match,
+    });
+  },
+);
+
+export const getPlayers = asyncHandler<MatchIdParams>(
+  async (req, res): Promise<void> => {
+    const { id } = req.params;
+    const players: MatchPlayersResponse = await getPlayersByMatchId(id);
+
+    sendResponse<MatchPlayersResponse>({
+      res,
+      message: "Players fetched successfully",
+      data: players,
     });
   },
 );
