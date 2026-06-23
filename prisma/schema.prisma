@@ -225,12 +225,14 @@ model MatchPlayer {
   isCaptain       Boolean @default(false)
   isViceCaptain   Boolean @default(false)
   isWicketKeeper  Boolean @default(false)
+  order           Int?
   battingOrder    Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([matchId, playerId])
+  @@unique([matchId, teamId, order])
   @@unique([matchId, teamId, battingOrder])
   @@index([matchId])
   @@index([teamId])

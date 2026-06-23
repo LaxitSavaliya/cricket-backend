@@ -512,13 +512,16 @@ const createMatchPlayerRows = ({
   captain,
   viceCaptain,
   wicketKeeper,
+  wicketsCount,
 }: {
   players: Player[];
   teamId: string;
   captain: Player;
   viceCaptain: Player;
   wicketKeeper: Player;
+  wicketsCount: number;
 }) => {
+  const battersCount = Math.min(players.length, wicketsCount + 2);
   return players.map((player, index) => ({
     teamId,
     playerId: player.id,
@@ -526,7 +529,8 @@ const createMatchPlayerRows = ({
     isCaptain: player.id === captain.id,
     isViceCaptain: player.id === viceCaptain.id,
     isWicketKeeper: player.id === wicketKeeper.id,
-    battingOrder: index + 1,
+    order: index + 1,
+    battingOrder: index < battersCount ? index + 1 : null,
   }));
 };
 
@@ -652,6 +656,7 @@ const createCompletedT10Match = async (
               captain: seed.home.captain,
               viceCaptain: seed.home.viceCaptain,
               wicketKeeper: seed.home.wicketKeeper,
+              wicketsCount: firstIningWickets,
             }),
             ...createMatchPlayerRows({
               players: seed.away.players,
@@ -659,6 +664,7 @@ const createCompletedT10Match = async (
               captain: seed.away.captain,
               viceCaptain: seed.away.viceCaptain,
               wicketKeeper: seed.away.wicketKeeper,
+              wicketsCount: secondIningWickets,
             }),
           ],
         },
