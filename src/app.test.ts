@@ -108,6 +108,7 @@ const mockMatchPlayersData = {
     {
       teamId: "team-home-1",
       isPlayingEleven: true,
+      order: 1,
       battingOrder: 1,
       player: {
         id: "player-1",
@@ -120,6 +121,7 @@ const mockMatchPlayersData = {
     {
       teamId: "team-home-1",
       isPlayingEleven: false,
+      order: null,
       battingOrder: null,
       player: {
         id: "player-2",
@@ -132,6 +134,7 @@ const mockMatchPlayersData = {
     {
       teamId: "team-away-1",
       isPlayingEleven: true,
+      order: 1,
       battingOrder: 1,
       player: {
         id: "player-3",
@@ -144,6 +147,7 @@ const mockMatchPlayersData = {
     {
       teamId: "team-away-1",
       isPlayingEleven: false,
+      order: null,
       battingOrder: null,
       player: {
         id: "player-4",
@@ -352,6 +356,71 @@ describe("Match Routes", () => {
 
       const response = await request(app).get(
         "/api/v1/matches/non-existent-id/players",
+      );
+
+      expect(response.status).toBe(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toContain("not found");
+    });
+  });
+
+  describe("GET /api/v1/matches/:id/score", () => {
+    it("should return match score for a valid ID", async () => {
+      const mockScoreData = {
+        ...mockMatch,
+        matchPlayers: [
+          {
+            teamId: "team-home-1",
+            playerId: "player-1",
+            isPlayingEleven: true,
+            order: 1,
+            battingOrder: 1,
+            player: { id: "player-1", playerName: "rohit_sharma" },
+          },
+        ],
+        balls: [
+          {
+            inningsNo: 1,
+            strikerId: "player-1",
+            bowlerId: "player-3",
+            batterRuns: 4,
+            wideRuns: 0,
+            noBallRuns: 0,
+            byeRuns: 0,
+            legByeRuns: 0,
+            penaltyRuns: 0,
+            isWide: false,
+            isNoBall: false,
+            isBye: false,
+            isLegBye: false,
+            isPenalty: false,
+            isDeadBall: false,
+            boundaryType: "FOUR",
+            isWicket: false,
+          },
+        ],
+      };
+      findUnique.mockResolvedValueOnce(mockScoreData);
+
+      const response = await request(app).get("/api/v1/matches/match-1/score");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toBe("Score fetched successfully");
+      expect(response.body.data.firstInning.score.run).toBe(180);
+      expect(
+        response.body.data.firstInning.playerBattingPerformance[0].runs,
+      ).toBe(4);
+      expect(
+        response.body.data.firstInning.playerBattingPerformance[0].fours,
+      ).toBe(1);
+    });
+
+    it("should return 404 for score of a non-existent match", async () => {
+      findUnique.mockResolvedValueOnce(null);
+
+      const response = await request(app).get(
+        "/api/v1/matches/non-existent-id/score",
       );
 
       expect(response.status).toBe(404);

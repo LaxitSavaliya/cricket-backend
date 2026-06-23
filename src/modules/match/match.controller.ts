@@ -6,11 +6,13 @@ import type {
   MatchDetails,
   MatchListItem,
   MatchPlayersResponse,
+  MatchScore,
 } from "./match.service.js";
 import {
   getAllMatches,
   getMatchById,
   getPlayersByMatchId,
+  getScoreByMatchId,
 } from "./match.service.js";
 
 interface MatchIdParams {
@@ -51,6 +53,19 @@ export const getPlayers = asyncHandler<MatchIdParams>(
       res,
       message: "Players fetched successfully",
       data: players,
+    });
+  },
+);
+
+export const getScore = asyncHandler<MatchIdParams>(
+  async (req, res): Promise<void> => {
+    const { id } = req.params;
+    const score: MatchScore = await getScoreByMatchId(id);
+
+    sendResponse<MatchScore>({
+      res,
+      message: "Score fetched successfully",
+      data: score,
     });
   },
 );
