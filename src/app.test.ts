@@ -414,6 +414,18 @@ describe("Match Routes", () => {
       expect(
         response.body.data.firstInning.playerBattingPerformance[0].fours,
       ).toBe(1);
+      expect(response.body.data.firstInning.partnership).toHaveLength(1);
+      expect(response.body.data.firstInning.partnership[0]).toEqual({
+        runs: 4,
+        balls: 1,
+        wicket: 1,
+        player1Name: "rohit_sharma",
+        player1Runs: 4,
+        player1Balls: 1,
+        player2Name: "",
+        player2Runs: 0,
+        player2Balls: 0,
+      });
     });
 
     it("should return 404 for score of a non-existent match", async () => {
