@@ -268,20 +268,41 @@ export interface ExtraRuns {
   penaltyRuns: number;
 }
 
+export interface Score {
+  run: number;
+  wicket: number;
+  overs: number;
+}
+
+export interface FallOfWicket {
+  playerName: string;
+  score: Score;
+}
+
+export interface Partnership {
+  runs: number;
+  balls: number;
+  wicket: number;
+  player1Name: string;
+  player1Runs: number;
+  player1Balls: number;
+  player2Name: string;
+  player2Runs: number;
+  player2Balls: number;
+}
+
 export interface TeamScoreDetail {
   id: string;
   teamName: string;
   shortName: string | null;
   logoUrl: string | null;
-  score: {
-    run: number;
-    wicket: number;
-    overs: number;
-  };
+  score: Score;
   playerBattingPerformance: PlayerBattingPerformance[];
   playerBowlingPerformance: PlayerBowlingPerformance[];
   nextbatters: string[];
   extraRuns: ExtraRuns;
+  fallOfWicket: FallOfWicket[];
+  partnership: Partnership[];
 }
 
 export interface MatchScore {
@@ -522,6 +543,164 @@ export const getScoreByMatchId = async (id: string): Promise<MatchScore> => {
       .map((mp) => mp.player.playerName);
   };
 
+  // Helper to find fall of wickets
+  const getFallOfWickets = (balls: typeof match.balls): FallOfWicket[] => {
+    const sortedBalls = balls
+      .slice()
+      .sort((a, b) => a.deliveryNo - b.deliveryNo);
+    const fallOfWicketList: FallOfWicket[] = [];
+    let runningRuns = 0;
+
+    const getPlayerNameById = (playerId: string | null): string => {
+      if (!playerId) return "";
+      const playerEntry = match.matchPlayers.find(
+        (p) => p.playerId === playerId,
+      );
+      return playerEntry ? playerEntry.player.playerName : "";
+    };
+
+    for (const ball of sortedBalls) {
+      runningRuns += ball.totalRuns;
+      if (ball.isWicket && ball.dismissedPlayerId) {
+        const playerName = getPlayerNameById(ball.dismissedPlayerId);
+        const overVal = ball.overNo + ball.ballNo / 10;
+        const wicketNo = fallOfWicketList.length + 1;
+        fallOfWicketList.push({
+          playerName,
+          score: {
+            run: runningRuns,
+            wicket: wicketNo,
+            overs: parseFloat(overVal.toFixed(1)),
+          },
+        });
+      }
+    }
+
+    return fallOfWicketList;
+  };
+
+  // Helper to find partnerships
+  const getPartnerships = (balls: typeof match.balls): Partnership[] => {
+    const sortedBalls = balls
+      .slice()
+      .sort((a, b) => a.deliveryNo - b.deliveryNo);
+    const partnerships: Partnership[] = [];
+
+    if (sortedBalls.length === 0) return partnerships;
+
+    let currentWicket = 1;
+    let pRuns = 0;
+    let pBalls = 0;
+
+    let p1Id: string | null = null;
+    let p2Id: string | null = null;
+    let p1Runs = 0;
+    let p1Balls = 0;
+    let p2Runs = 0;
+    let p2Balls = 0;
+
+    const getPlayerNameById = (playerId: string | null): string => {
+      if (!playerId) return "";
+      const playerEntry = match.matchPlayers.find(
+        (p) => p.playerId === playerId,
+      );
+      return playerEntry ? playerEntry.player.playerName : "";
+    };
+
+    for (const ball of sortedBalls) {
+      // Maintain partnership player mapping based on current active players
+      if (!p1Id && !p2Id) {
+        p1Id = ball.strikerId;
+        p2Id = ball.nonStrikerId;
+      } else {
+        if (p1Id !== ball.strikerId && p1Id !== ball.nonStrikerId) {
+          p1Id = ball.strikerId === p2Id ? ball.nonStrikerId : ball.strikerId;
+          p1Runs = 0;
+          p1Balls = 0;
+        }
+        if (p2Id !== ball.strikerId && p2Id !== ball.nonStrikerId) {
+          p2Id = ball.strikerId === p1Id ? ball.nonStrikerId : ball.strikerId;
+          p2Runs = 0;
+          p2Balls = 0;
+        }
+      }
+
+      // Add runs and balls to the partnership
+      const ballTotalRuns =
+        ball.totalRuns !== undefined && ball.totalRuns !== null
+          ? ball.totalRuns
+          : (ball.batterRuns || 0) +
+            (ball.wideRuns || 0) +
+            (ball.noBallRuns || 0) +
+            (ball.byeRuns || 0) +
+            (ball.legByeRuns || 0) +
+            (ball.penaltyRuns || 0);
+      pRuns += ballTotalRuns;
+      const isLegal = !ball.isWide && !ball.isDeadBall;
+      if (isLegal) {
+        pBalls += 1;
+      }
+
+      // Track individual runs and balls
+      if (ball.strikerId === p1Id) {
+        p1Runs += ball.batterRuns;
+        if (isLegal) p1Balls += 1;
+      } else if (ball.strikerId === p2Id) {
+        p2Runs += ball.batterRuns;
+        if (isLegal) p2Balls += 1;
+      }
+
+      // Check if a wicket fell
+      if (ball.isWicket && ball.dismissedPlayerId) {
+        // Save the partnership
+        partnerships.push({
+          runs: pRuns,
+          balls: pBalls,
+          wicket: currentWicket,
+          player1Name: getPlayerNameById(p1Id),
+          player1Runs: p1Runs,
+          player1Balls: p1Balls,
+          player2Name: getPlayerNameById(p2Id),
+          player2Runs: p2Runs,
+          player2Balls: p2Balls,
+        });
+
+        // Reset for the next partnership
+        currentWicket += 1;
+        pRuns = 0;
+        pBalls = 0;
+
+        // Identify who was dismissed, and reset their slot
+        const dismissedId = ball.dismissedPlayerId;
+        if (dismissedId === p1Id) {
+          p1Id = null;
+        } else if (dismissedId === p2Id) {
+          p2Id = null;
+        } else {
+          // Fallback
+          p1Id = null;
+        }
+      }
+    }
+
+    // If there is an ongoing partnership at the end of the innings, add it
+    if (p1Id || p2Id || pRuns > 0 || pBalls > 0) {
+      partnerships.push({
+        runs: pRuns,
+        balls: pBalls,
+        wicket: currentWicket,
+        player1Name: getPlayerNameById(p1Id),
+        player1Runs: p1Runs,
+        player1Balls: p1Balls,
+        player2Name: getPlayerNameById(p2Id),
+        player2Runs: p2Runs,
+        player2Balls: p2Balls,
+      });
+    }
+
+    return partnerships;
+  };
+
   const homePlayers = match.matchPlayers.filter(
     (mp) => mp.teamId === match.homeTeamId,
   );
@@ -550,6 +729,8 @@ export const getScoreByMatchId = async (id: string): Promise<MatchScore> => {
       ),
       nextbatters: getNextBatters(homePlayers),
       extraRuns: calculateExtraRuns(firstIningBalls),
+      fallOfWicket: getFallOfWickets(firstIningBalls),
+      partnership: getPartnerships(firstIningBalls),
     },
     secondInning: {
       id: match.awayTeamId,
@@ -571,6 +752,8 @@ export const getScoreByMatchId = async (id: string): Promise<MatchScore> => {
       ),
       nextbatters: getNextBatters(awayPlayers),
       extraRuns: calculateExtraRuns(secondIningBalls),
+      fallOfWicket: getFallOfWickets(secondIningBalls),
+      partnership: getPartnerships(secondIningBalls),
     },
   };
 };
