@@ -12,33 +12,24 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node --enable-source-maps dist/server.js",
-
     "clean": "rimraf dist",
     "build": "npm run clean && npm run prisma:generate && tsc -p tsconfig.build.json",
-
-    "format:check": "prettier --check \"src/**/*.ts\"",
-    "format:write": "prettier --write \"src/**/*.ts\"",
-
+    "format:check": "prettier . --check",
+    "format:write": "prettier . --write",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-
     "typecheck": "tsc -p tsconfig.json --noEmit",
-
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-
     "prisma:format": "prisma format",
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",
-
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-
     "db:prepare": "npm run prisma:format && npm run prisma:validate && npm run prisma:generate && npm run db:migrate",
-
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build"
   },
   "prisma": {
