@@ -1,15 +1,7 @@
 export type ApiErrorDetails = Readonly<Record<string, unknown>>;
 
 export type HttpStatusCode =
-  | 400
-  | 401
-  | 403
-  | 404
-  | 409
-  | 422
-  | 429
-  | 500
-  | 503;
+  400 | 401 | 403 | 404 | 409 | 422 | 429 | 500 | 503;
 
 type ApiErrorOptions = {
   statusCode: HttpStatusCode;

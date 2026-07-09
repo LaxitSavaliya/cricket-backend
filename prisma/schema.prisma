@@ -198,6 +198,71 @@ model MatchPlayer {
   isCaptain     Boolean @default(false)
   isViceCaptain Boolean @default(false)
 
+  // =========================
+  // Batting
+  // =========================
+
+  didBat      Boolean @default(false)
+
+  runsScored      Int @default(0)
+  ballsFaced      Int @default(0)
+
+  battingDotBalls Int @default(0)
+  singles         Int @default(0)
+  doubles         Int @default(0)
+  triples         Int @default(0)
+  fourRunShots    Int @default(0)
+
+  fours           Int @default(0)
+  sixes           Int @default(0)
+
+  isOut         Boolean @default(false)
+  dismissalType DismissalType?
+
+  // =========================
+  // Bowling
+  // =========================
+
+  didBowl         Boolean @default(false)
+  
+  ballsBowled     Int     @default(0)
+
+  bowlingDotBalls Int @default(0)
+
+  singlesConceded      Int @default(0)
+  doublesConceded      Int @default(0)
+  triplesConceded      Int @default(0)
+  fourRunShotsConceded Int @default(0)
+
+  foursConceded   Int @default(0)
+  sixesConceded   Int @default(0)
+
+  wides   Int @default(0)
+  noBalls Int @default(0)
+
+  runsConceded Int @default(0)
+  maidens      Int @default(0)
+  wickets      Int @default(0)
+
+  twoWicketsInTwoBalls   Int @default(0)
+  hatTricks              Int @default(0)
+  fourWicketsInFourBalls Int @default(0)
+  fiveWicketsInFiveBalls Int @default(0)
+  sixWicketsInSixBalls   Int @default(0)
+
+  // =========================
+  // Fielding
+  // =========================
+
+  catches       Int @default(0)
+  catchAssists  Int @default(0)
+
+  stumpings     Int @default(0)
+
+  runOuts       Int @default(0)
+  runOutAssists Int @default(0)
+  
+
   ballsAsStriker       Ball[] @relation("BallStriker")
   ballsAsNonStriker    Ball[] @relation("BallNonStriker")
   ballsAsBowler        Ball[] @relation("BallBowler")
@@ -331,54 +396,4 @@ model Ball {
   @@index([assistFielderMatchPlayerId])
 
   @@map("balls")
-}
-
-model MatchPlayerStats {
-  id String @id @default(cuid())
-
-  matchPlayerId String @unique
-  matchPlayer   MatchPlayer @relation(fields: [matchPlayerId], references: [id], onDelete: Cascade)
-
-  // ==========================
-  // Batting
-  // ==========================
-
-  didBat      Boolean @default(false)
-  isOut       Boolean @default(false)
-
-  runs        Int @default(0)
-  ballsFaced  Int @default(0)
-  fours       Int @default(0)
-  sixes       Int @default(0)
-
-  // ==========================
-  // Bowling
-  // ==========================
-
-  ballsBowled Int @default(0)
-  maidens     Int @default(0)
-  dotBalls    Int @default(0)
-
-  wicketsTaken Int @default(0)
-
-  wideRunsConceded     Int @default(0)
-  noBallRunsConceded   Int @default(0)
-  byeRunsConceded      Int @default(0)
-  legByeRunsConceded   Int @default(0)
-  penaltyRunsConceded  Int @default(0)
-
-  totalRunsConceded Int @default(0)
-
-  // ==========================
-  // Fielding
-  // ==========================
-
-  catches   Int @default(0)
-  stumpings Int @default(0)
-  runOuts   Int @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("match_player_stats")
 }
