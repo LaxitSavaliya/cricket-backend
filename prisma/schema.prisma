@@ -63,6 +63,7 @@ enum DismissalType {
   OBSTRUCTING_FIELD
   TIMED_OUT
   RETIRED_OUT
+  RETIRED_HURT
 }
 
 enum DeadBallReason {
@@ -112,7 +113,7 @@ model Player {
   photoUrl    String?
   role        PlayerRole
 
-  isWicketKeeper Boolean @default(false)
+  canKeepWickets Boolean @default(false)
 
   matchPlayers MatchPlayer[]
 
@@ -147,6 +148,7 @@ model Team {
 model Match {
   id          String      @id @default(cuid())
   title       String
+  slug        String      @unique
   matchFormat MatchFormat
   status      MatchStatus @default(UPCOMING)
 
@@ -172,9 +174,8 @@ model Match {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([title])
+  @@index([title])
   @@index([matchDate])
-  @@index([status])
   @@index([status, matchDate])
   @@index([matchFormat])
   @@index([homeTeamId])
@@ -211,7 +212,7 @@ model MatchPlayer {
   singles         Int @default(0)
   doubles         Int @default(0)
   triples         Int @default(0)
-  fourRunShots    Int @default(0)
+  runningFours    Int @default(0)
 
   fours           Int @default(0)
   sixes           Int @default(0)
@@ -224,21 +225,21 @@ model MatchPlayer {
   // =========================
 
   didBowl         Boolean @default(false)
-  
-  ballsBowled     Int     @default(0)
+
+  legalBallsBowled     Int     @default(0)
 
   bowlingDotBalls Int @default(0)
 
   singlesConceded      Int @default(0)
   doublesConceded      Int @default(0)
   triplesConceded      Int @default(0)
-  fourRunShotsConceded Int @default(0)
+  runningFoursConceded Int @default(0)
 
   foursConceded   Int @default(0)
   sixesConceded   Int @default(0)
 
-  wides   Int @default(0)
-  noBalls Int @default(0)
+  wideDeliveries   Int @default(0)
+  noBallDeliveries Int @default(0)
 
   runsConceded Int @default(0)
   maidens      Int @default(0)
@@ -261,7 +262,7 @@ model MatchPlayer {
 
   runOuts       Int @default(0)
   runOutAssists Int @default(0)
-  
+
 
   ballsAsStriker       Ball[] @relation("BallStriker")
   ballsAsNonStriker    Ball[] @relation("BallNonStriker")
@@ -275,7 +276,6 @@ model MatchPlayer {
 
   @@unique([matchId, playerId])
 
-  @@index([matchId])
   @@index([teamId])
   @@index([playerId])
   @@index([matchId, teamId])
@@ -310,8 +310,8 @@ model MatchInning {
   updatedAt DateTime @updatedAt
 
   @@unique([matchId, inningsNo])
+  @@index([matchId, status])
   @@index([teamId])
-  @@index([status])
   @@map("match_innings")
 }
 
@@ -385,7 +385,6 @@ model Ball {
 
   @@unique([inningId, deliveryNo])
 
-  @@index([inningId])
   @@index([inningId, overNo, ballNo])
 
   @@index([strikerMatchPlayerId])
