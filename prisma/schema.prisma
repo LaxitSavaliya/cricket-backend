@@ -127,16 +127,16 @@ model Player {
 }
 
 model Team {
-  id        String  @id @default(cuid())
-  teamName  String  @unique
-  logoUrl   String?
-  slug      String  @unique
+  id       String  @id @default(cuid())
+  teamName String  @unique
+  logoUrl  String?
+  slug     String  @unique
 
   homeMatches       Match[] @relation("HomeTeam")
   awayMatches       Match[] @relation("AwayTeam")
   tossWinnerMatches Match[] @relation("TossWinnerTeam")
 
-  innings     MatchInning[]
+  innings      MatchInning[]
   matchPlayers MatchPlayer[]
 
   createdAt DateTime @default(now())
@@ -203,10 +203,10 @@ model MatchPlayer {
   // Batting
   // =========================
 
-  didBat      Boolean @default(false)
+  didBat Boolean @default(false)
 
-  runsScored      Int @default(0)
-  ballsFaced      Int @default(0)
+  runsScored Int @default(0)
+  ballsFaced Int @default(0)
 
   battingDotBalls Int @default(0)
   singles         Int @default(0)
@@ -214,19 +214,19 @@ model MatchPlayer {
   triples         Int @default(0)
   runningFours    Int @default(0)
 
-  fours           Int @default(0)
-  sixes           Int @default(0)
+  fours Int @default(0)
+  sixes Int @default(0)
 
-  isOut         Boolean @default(false)
+  isOut         Boolean        @default(false)
   dismissalType DismissalType?
 
   // =========================
   // Bowling
   // =========================
 
-  didBowl         Boolean @default(false)
+  didBowl Boolean @default(false)
 
-  legalBallsBowled     Int     @default(0)
+  legalBallsBowled Int @default(0)
 
   bowlingDotBalls Int @default(0)
 
@@ -235,8 +235,8 @@ model MatchPlayer {
   triplesConceded      Int @default(0)
   runningFoursConceded Int @default(0)
 
-  foursConceded   Int @default(0)
-  sixesConceded   Int @default(0)
+  foursConceded Int @default(0)
+  sixesConceded Int @default(0)
 
   wideDeliveries   Int @default(0)
   noBallDeliveries Int @default(0)
@@ -255,14 +255,13 @@ model MatchPlayer {
   // Fielding
   // =========================
 
-  catches       Int @default(0)
-  catchAssists  Int @default(0)
+  catches      Int @default(0)
+  catchAssists Int @default(0)
 
-  stumpings     Int @default(0)
+  stumpings Int @default(0)
 
   runOuts       Int @default(0)
   runOutAssists Int @default(0)
-
 
   ballsAsStriker       Ball[] @relation("BallStriker")
   ballsAsNonStriker    Ball[] @relation("BallNonStriker")
@@ -275,12 +274,10 @@ model MatchPlayer {
   updatedAt DateTime @updatedAt
 
   @@unique([matchId, playerId])
-
   @@index([teamId])
   @@index([playerId])
   @@index([matchId, teamId])
   @@index([matchId, teamId, isPlaying])
-
   @@map("match_players")
 }
 
@@ -368,9 +365,9 @@ model Ball {
   extraRuns Int @default(0)
   totalRuns Int @default(0)
 
-  isWicket                Boolean        @default(false)
-  dismissalType           DismissalType?
-  dismissedMatchPlayerId  String?
+  isWicket               Boolean        @default(false)
+  dismissalType          DismissalType?
+  dismissedMatchPlayerId String?
 
   dismissedMatchPlayer MatchPlayer? @relation("BallDismissedPlayer", fields: [dismissedMatchPlayerId], references: [id], onDelete: Restrict)
 
@@ -384,15 +381,12 @@ model Ball {
   updatedAt DateTime @updatedAt
 
   @@unique([inningId, deliveryNo])
-
   @@index([inningId, overNo, ballNo])
-
   @@index([strikerMatchPlayerId])
   @@index([nonStrikerMatchPlayerId])
   @@index([bowlerMatchPlayerId])
   @@index([dismissedMatchPlayerId])
   @@index([fielderMatchPlayerId])
   @@index([assistFielderMatchPlayerId])
-
   @@map("balls")
 }
