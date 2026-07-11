@@ -1,6 +1,6 @@
 import { PlayerRole } from "../../src/generated/prisma/enums.js";
 
-type playerType = {
+export type playerType = {
   id: string;
   playerName: string;
   displayName: string | null;
