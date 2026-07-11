@@ -5,12 +5,12 @@ import {
   WideReason,
 } from "../../src/generated/prisma/enums.js";
 
-type PercentageOption<T extends string> = {
+export type PercentageOption<T extends string> = {
   readonly value: T;
   readonly percentage: number;
 };
 
-function getRandomByPercentage<T extends string>(
+export function getRandomByPercentage<T extends string>(
   options: readonly PercentageOption<T>[],
 ): T {
   if (options.length === 0) {
