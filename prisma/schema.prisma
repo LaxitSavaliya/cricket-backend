@@ -63,7 +63,6 @@ enum DismissalType {
   OBSTRUCTING_FIELD
   TIMED_OUT
   RETIRED_OUT
-  RETIRED_HURT
 }
 
 enum DeadBallReason {
@@ -103,6 +102,11 @@ enum MatchInningStatus {
   NOT_STARTED
   LIVE
   COMPLETED
+}
+
+enum PitchEnd {
+  STRIKER_END
+  BOWLER_END
 }
 
 model Player {
@@ -338,13 +342,14 @@ model Ball {
 
   isLegalDelivery Boolean @default(true)
 
-  isFour   Boolean @default(false)
-  isSix    Boolean @default(false)
-  isWide   Boolean @default(false)
-  isNoBall Boolean @default(false)
-  isBye    Boolean @default(false)
-  isLegBye Boolean @default(false)
-
+  isFreeHit Boolean @default(false)
+  isDotBall Boolean @default(false)
+  isFour    Boolean @default(false)
+  isSix     Boolean @default(false)
+  isWide    Boolean @default(false)
+  isNoBall  Boolean @default(false)
+  isBye     Boolean @default(false)
+  isLegBye  Boolean @default(false)
   isPenalty Boolean @default(false)
 
   isDeadBall     Boolean         @default(false)
@@ -367,6 +372,7 @@ model Ball {
 
   isWicket               Boolean        @default(false)
   dismissalType          DismissalType?
+  runOutEnd              PitchEnd?
   dismissedMatchPlayerId String?
 
   dismissedMatchPlayer MatchPlayer? @relation("BallDismissedPlayer", fields: [dismissedMatchPlayerId], references: [id], onDelete: Restrict)

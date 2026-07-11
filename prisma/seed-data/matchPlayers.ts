@@ -1,6 +1,6 @@
 import { DismissalType } from "../../src/generated/prisma/enums";
 
-type matchPlayerType = {
+export type matchPlayerType = {
   id: string;
   matchId: string;
   teamId: string;

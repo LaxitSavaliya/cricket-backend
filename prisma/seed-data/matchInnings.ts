@@ -3,7 +3,7 @@ import {
   MatchInningStatus,
 } from "../../src/generated/prisma/enums";
 
-type matchInning = {
+export type matchInning = {
   id: string;
   matchId: string;
   teamId: string;
