@@ -6,8 +6,6 @@ import {
   PitchEnd,
   WideReason,
 } from "../../src/generated/prisma/enums";
-import { generateBalls } from "../seed-utils/generate-balls.js";
-import matchInnings from "./matchInnings.js";
 
 export type ballType = {
   id: string;
@@ -29,10 +27,10 @@ export type ballType = {
   isLegBye: boolean;
   isPenalty: boolean;
   isDeadBall: boolean;
-  deadBallReason: DeadBallReason;
+  deadBallReason: DeadBallReason | null;
   noBallReasons: NoBallReason[];
-  wideReason: WideReason;
-  penaltyRunReason: PenaltyRunReason;
+  wideReason: WideReason | null;
+  penaltyRunReason: PenaltyRunReason | null;
   batterRuns: number;
   noBallRuns: number;
   wideRuns: number;
@@ -42,13 +40,13 @@ export type ballType = {
   extraRuns: number;
   totalRuns: number;
   isWicket: boolean;
-  dismissalType: DismissalType;
-  runOutEnd: PitchEnd;
-  dismissedMatchPlayerId: string;
-  fielderMatchPlayerId: string;
-  assistFielderMatchPlayerId: string;
+  dismissalType: DismissalType | null;
+  runOutEnd: PitchEnd | null;
+  dismissedMatchPlayerId: string | null;
+  fielderMatchPlayerId: string | null;
+  assistFielderMatchPlayerId: string | null;
 };
 
-const balls: ballType[] = generateBalls(matchInnings);
+const balls: ballType[] = [];
 
 export default balls;
