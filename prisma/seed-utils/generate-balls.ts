@@ -82,6 +82,10 @@ export const generateBalls = (
     throw new Error("Not enough bowling options to complete the innings.");
   }
 
+  if (matchInning.inningsNo === MatchInningNo.SECOND && !matchInning.target) {
+    throw new Error("Target can't be null for second innings.");
+  }
+
   const bowlingPlayersWithPercentage =
     generateBowlingPlayerPercentage(bowlingPlayers);
 
@@ -97,11 +101,51 @@ export const generateBalls = (
   let nonStrikerMatchPlayerId = 1;
   let bowlerMatchPlayerId = getRandomByPercentage(bowlingPlayersWithPercentage);
 
+  let inningsRuns = 0;
+
   const swapStrike = () => {
     [strikerMatchPlayerId, nonStrikerMatchPlayerId] = [
       nonStrikerMatchPlayerId,
       strikerMatchPlayerId,
     ];
+  };
+
+  const getValidBall = (overNo: number, ballNo: number): ballType => {
+    while (true) {
+      const ball: ballType = {
+        ...generateBall(
+          inningId,
+          deliveryNo,
+          overNo,
+          ballNo,
+          isLastBallNoBall,
+          battingPlayers[strikerMatchPlayerId]!,
+          battingPlayers[nonStrikerMatchPlayerId]!,
+          bowlerMatchPlayerId,
+          fielders,
+        ),
+        id: String(newId),
+      };
+
+      if (matchInning.inningsNo !== MatchInningNo.SECOND) {
+        return ball;
+      }
+
+      const requiredRuns = matchInning.target! - inningsRuns;
+
+      if (requiredRuns === 2 && ball.totalRuns === 3) {
+        continue;
+      }
+
+      if (
+        requiredRuns === 1 &&
+        (ball.totalRuns === 2 || ball.totalRuns === 3)
+      ) {
+        continue;
+      }
+
+      return ball;
+    }
   };
 
   overLoop: for (let i = 0; i < overs; i++) {
@@ -124,22 +168,18 @@ export const generateBalls = (
 
     let overBall = 1;
     while (overBall <= 6) {
-      const ball: ballType = {
-        ...generateBall(
-          inningId,
-          deliveryNo,
-          i,
-          overBall,
-          isLastBallNoBall,
-          battingPlayers[strikerMatchPlayerId]!,
-          battingPlayers[nonStrikerMatchPlayerId]!,
-          bowlerMatchPlayerId,
-          fielders,
-        ),
-        id: String(newId),
-      };
+      const ball = getValidBall(i, overBall);
 
       balls.push(ball);
+      inningsRuns += ball.totalRuns;
+
+      if (
+        matchInning.inningsNo === MatchInningNo.SECOND &&
+        matchInning.target! <= inningsRuns
+      ) {
+        break overLoop;
+      }
+
       newId++;
       if (ball.isLegalDelivery) {
         overBall++;
@@ -250,13 +290,13 @@ const balls = generateBalls(
     id: "401",
     matchId: "201",
     teamId: "101",
-    inningsNo: MatchInningNo.FIRST,
+    inningsNo: MatchInningNo.SECOND,
     runs: 0,
     wickets: 0,
     balls: 0,
     maxOvers: 10,
     status: MatchInningStatus.COMPLETED,
-    target: null,
+    target: 10,
   },
   ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
   [

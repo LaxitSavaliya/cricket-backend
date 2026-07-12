@@ -323,12 +323,18 @@ const generateBall = (
     const isAssist = getRandomByPercentage(assistPosibilities);
     if (isAssist === "ASSIST") {
       assistFielderMatchPlayerId = getRandomByPercentage(fildersList);
+      if (fielderMatchPlayerId === assistFielderMatchPlayerId) {
+        assistFielderMatchPlayerId = null;
+      }
     }
   } else if (wicketOutcome === "CAUGHT") {
     fielderMatchPlayerId = getRandomByPercentage(fildersList);
     const isAssist = getRandomByPercentage(assistPosibilities);
     if (isAssist === "ASSIST") {
       assistFielderMatchPlayerId = getRandomByPercentage(fildersList);
+      if (fielderMatchPlayerId === assistFielderMatchPlayerId) {
+        assistFielderMatchPlayerId = null;
+      }
     }
   }
 
@@ -417,9 +423,9 @@ const generateBall = (
     bowlerMatchPlayerId,
     isLegalDelivery: bowledType === "LEGAL",
     isFreeHit: isFreeHit,
-    isDotBall: batOutcome === "DOT",
-    isFour: batOutcome === "FOUR",
-    isSix: batOutcome === "SIX",
+    isDotBall: bowledType === "LEGAL" ? batOutcome === "DOT" : false,
+    isFour: contactType === "BAT_CONTACT" ? batOutcome === "FOUR" : false,
+    isSix: contactType === "BAT_CONTACT" ? batOutcome === "SIX" : false,
     isWide: bowledType === "WIDE",
     isNoBall: bowledType === "NO_BALL",
     isBye: contactType === "NO_CONTACT",
