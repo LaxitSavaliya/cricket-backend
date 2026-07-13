@@ -4,7 +4,7 @@ import {
   TossDecision,
 } from "../../src/generated/prisma/enums.js";
 
-type matchType = {
+export type matchType = {
   id: string;
   title: string;
   slug: string;
