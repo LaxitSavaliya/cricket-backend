@@ -153,9 +153,9 @@ const players: playerType[] = [
   },
   {
     id: "16",
-    playerName: "Harry Brook",
-    displayName: "H Brook",
-    slug: "harry-brook",
+    playerName: "Joe Root",
+    displayName: "J Root",
+    slug: "joe-root",
     photoUrl: null,
     role: PlayerRole.BATSMAN,
     canKeepWickets: false,

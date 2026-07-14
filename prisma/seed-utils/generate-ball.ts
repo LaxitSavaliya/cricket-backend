@@ -1,6 +1,8 @@
 import {
+  DeadBallReason,
   DismissalType,
   NoBallReason,
+  PenaltyRunReason,
   PitchEnd,
   WideReason,
 } from "../../src/generated/prisma/enums.js";
@@ -10,8 +12,11 @@ export type PercentageOption<T extends string> = {
   readonly percentage: number;
 };
 
+export type RandomSource = () => number;
+
 export function getRandomByPercentage<T extends string>(
   options: readonly PercentageOption<T>[],
+  random: RandomSource = Math.random,
 ): T {
   if (options.length === 0) {
     throw new Error("Options array cannot be empty.");
@@ -41,7 +46,15 @@ export function getRandomByPercentage<T extends string>(
     );
   }
 
-  const randomNumber = Math.random() * 100;
+  const randomValue = random();
+
+  if (!Number.isFinite(randomValue) || randomValue < 0 || randomValue >= 1) {
+    throw new RangeError(
+      `Random source must return a finite number from 0 inclusive to 1 exclusive. Received: ${randomValue}`,
+    );
+  }
+
+  const randomNumber = randomValue * 100;
   let cumulativePercentage = 0;
 
   for (const option of options) {
@@ -78,11 +91,28 @@ function createEqualPercentageOptions<T extends string>(
 }
 
 type BowledType = "LEGAL" | "WIDE" | "NO_BALL";
-type ContactType = "BAT_CONTACT" | "BODY_CONTACT" | "NO_CONTACT";
+type ContactType =
+  | "BAT_CONTACT"
+  // In this seed generator, BODY_CONTACT only represents
+  // body contact where any completed runs are Leg-byes.
+  | "BODY_CONTACT"
+  | "NO_CONTACT";
 type BatRunOutcome =
   "DOT" | "SINGLE" | "DOUBLE" | "TRIPLE" | "FOUR" | "SIX" | "WICKET";
 type RunOutPlayer = "STRIKER" | "NON_STRIKER";
 type AssistPossibility = "ASSIST" | "NO_ASSIST";
+type ObstructionScenario = "PREVENTING_CATCH" | "OTHER_OBSTRUCTION";
+
+const obstructionScenarios = [
+  {
+    value: "PREVENTING_CATCH",
+    percentage: 20,
+  },
+  {
+    value: "OTHER_OBSTRUCTION",
+    percentage: 80,
+  },
+] as const satisfies readonly PercentageOption<ObstructionScenario>[];
 
 const bowledTypes = [
   {
@@ -186,7 +216,6 @@ const wideWicketOutcomes = [
   { value: "STUMPED", percentage: 51 },
   { value: "RUN_OUT", percentage: 40 },
   { value: "HIT_WICKET", percentage: 9 },
-  { value: "OBSTRUCTING_FIELD", percentage: 0 },
 ] as const satisfies readonly PercentageOption<DismissalType>[];
 
 const noBallBatContactWicketOutcomes = [
@@ -222,25 +251,35 @@ const wideReasons = [
   { value: "OTHER", percentage: 1 },
 ] as const satisfies readonly PercentageOption<WideReason>[];
 
-const noBallReasons = createEqualPercentageOptions([
-  "OTHER",
-  "OVERSTEP",
-  "BACK_FOOT_FAULT",
-  "ILLEGAL_ACTION",
-  "UNDERARM",
-  "BOUNCES_MORE_THAN_ONCE",
-  "ROLLING_BALL",
-  "PITCHED_OFF_PITCH",
-  "BALL_COMES_TO_REST",
-  "BOUNCER_OVER_HEAD",
-  "HIGH_FULL_TOSS",
-  "TOO_MANY_BOUNCERS",
-  "DANGEROUS_BOWLING",
-  "BOWLER_BREAKS_WICKET",
-  "FIELDER_INTERCEPTS_DELIVERY",
-  "WICKET_KEEPER_POSITION",
-  "FIELDING_RESTRICTION",
-] as const satisfies readonly NoBallReason[]);
+const noBallReasons = [
+  { value: "OVERSTEP", percentage: 55 },
+  { value: "BACK_FOOT_FAULT", percentage: 5 },
+  { value: "HIGH_FULL_TOSS", percentage: 12 },
+  { value: "TOO_MANY_BOUNCERS", percentage: 7 },
+  { value: "BOUNCER_OVER_HEAD", percentage: 5 },
+  { value: "DANGEROUS_BOWLING", percentage: 3 },
+  { value: "BOUNCES_MORE_THAN_ONCE", percentage: 2 },
+  { value: "ROLLING_BALL", percentage: 1 },
+  { value: "PITCHED_OFF_PITCH", percentage: 1 },
+  { value: "BALL_COMES_TO_REST", percentage: 0.5 },
+  { value: "BOWLER_BREAKS_WICKET", percentage: 1 },
+  { value: "FIELDER_INTERCEPTS_DELIVERY", percentage: 0.2 },
+  { value: "WICKET_KEEPER_POSITION", percentage: 1 },
+  { value: "FIELDING_RESTRICTION", percentage: 4 },
+  { value: "ILLEGAL_ACTION", percentage: 0.2 },
+  { value: "UNDERARM", percentage: 0.1 },
+  { value: "OTHER", percentage: 2 },
+] as const satisfies readonly PercentageOption<NoBallReason>[];
+
+const immediateDeadBallReasonByNoBallReason: Partial<
+  Record<NoBallReason, DeadBallReason>
+> = {
+  [NoBallReason.BALL_COMES_TO_REST]:
+    DeadBallReason.BALL_COMES_TO_REST_BEFORE_STRIKER,
+
+  [NoBallReason.FIELDER_INTERCEPTS_DELIVERY]:
+    DeadBallReason.FIELDER_INTERCEPTS_DELIVERY,
+};
 
 const freeHitNotOutReasons: readonly DismissalType[] = [
   "BOWLED",
@@ -269,10 +308,10 @@ export interface GeneratedBall {
   isLegBye: boolean;
   isPenalty: boolean;
   isDeadBall: boolean;
-  deadBallReason: null;
+  deadBallReason: DeadBallReason | null;
   noBallReasons: NoBallReason[];
   wideReason: WideReason | null;
-  penaltyRunReason: null;
+  penaltyRunReason: PenaltyRunReason | null;
   batterRuns: number;
   noBallRuns: number;
   wideRuns: number;
@@ -289,6 +328,216 @@ export interface GeneratedBall {
   assistFielderMatchPlayerId: string | null;
 }
 
+const dismissalTypesWithoutFielder = new Set<DismissalType>([
+  "BOWLED",
+  "LBW",
+  "HIT_WICKET",
+  "HIT_BALL_TWICE",
+  "OBSTRUCTING_FIELD",
+]);
+
+function assertGeneratedBallConsistency(ball: GeneratedBall): void {
+  const calculatedExtraRuns =
+    ball.noBallRuns +
+    ball.wideRuns +
+    ball.byeRuns +
+    ball.legByeRuns +
+    ball.penaltyRuns;
+
+  const calculatedTotalRuns = ball.batterRuns + calculatedExtraRuns;
+
+  if (
+    ball.dismissalType &&
+    dismissalTypesWithoutFielder.has(ball.dismissalType) &&
+    (ball.fielderMatchPlayerId !== null ||
+      ball.assistFielderMatchPlayerId !== null)
+  ) {
+    throw new Error(
+      `${ball.dismissalType} cannot contain fielder information.`,
+    );
+  }
+
+  if (!ball.isWide) {
+    if (ball.wideRuns !== 0) {
+      throw new Error("A non-Wide delivery cannot contain Wide runs.");
+    }
+
+    if (ball.wideReason !== null) {
+      throw new Error("A non-Wide delivery cannot contain wideReason.");
+    }
+  }
+
+  if (!ball.isNoBall) {
+    if (ball.noBallRuns !== 0) {
+      throw new Error("A non-No-ball delivery cannot contain No-ball runs.");
+    }
+
+    if (ball.noBallReasons.length !== 0) {
+      throw new Error("A non-No-ball delivery cannot contain No-ball reasons.");
+    }
+  }
+
+  const hasByeRuns = ball.byeRuns > 0;
+  const hasLegByeRuns = ball.legByeRuns > 0;
+  const hasPenaltyRuns = ball.penaltyRuns > 0;
+
+  if (ball.isBye !== hasByeRuns) {
+    throw new Error("isBye must match byeRuns.");
+  }
+
+  if (ball.isLegBye !== hasLegByeRuns) {
+    throw new Error("isLegBye must match legByeRuns.");
+  }
+
+  if (ball.isPenalty !== hasPenaltyRuns) {
+    throw new Error("isPenalty must match penaltyRuns.");
+  }
+
+  if (ball.isFour && ball.isSix) {
+    throw new Error("A delivery cannot be both a batter four and batter six.");
+  }
+
+  if (ball.isLegalDelivery && (ball.isWide || ball.isNoBall)) {
+    throw new Error("A Wide or No-ball cannot be a legal delivery.");
+  }
+
+  if (ball.extraRuns !== calculatedExtraRuns) {
+    throw new Error(
+      `Invalid extraRuns. Expected ${calculatedExtraRuns}, received ${ball.extraRuns}.`,
+    );
+  }
+
+  if (ball.totalRuns !== calculatedTotalRuns) {
+    throw new Error(
+      `Invalid totalRuns. Expected ${calculatedTotalRuns}, received ${ball.totalRuns}.`,
+    );
+  }
+
+  if (ball.isWide && ball.isNoBall) {
+    throw new Error("A delivery cannot be both Wide and No-ball.");
+  }
+
+  if (ball.isWicket !== (ball.dismissalType !== null)) {
+    throw new Error("isWicket must match whether dismissalType is present.");
+  }
+
+  if (!ball.isWicket) {
+    if (ball.dismissedMatchPlayerId !== null) {
+      throw new Error("A non-wicket delivery cannot have a dismissed player.");
+    }
+
+    if (ball.runOutEnd !== null) {
+      throw new Error("A non-wicket delivery cannot have runOutEnd.");
+    }
+
+    if (
+      ball.fielderMatchPlayerId !== null ||
+      ball.assistFielderMatchPlayerId !== null
+    ) {
+      throw new Error(
+        "A non-wicket delivery cannot contain fielder information.",
+      );
+    }
+  }
+
+  if (ball.dismissalType === "RUN_OUT") {
+    if (!ball.dismissedMatchPlayerId) {
+      throw new Error("Run-out must have a dismissed player.");
+    }
+
+    if (!ball.runOutEnd) {
+      throw new Error("Run-out must have a run-out end.");
+    }
+
+    if (!ball.fielderMatchPlayerId) {
+      throw new Error("Run-out must have a primary fielder.");
+    }
+  } else if (ball.runOutEnd !== null) {
+    throw new Error("runOutEnd must only be present for a run-out.");
+  }
+
+  if (ball.dismissalType === "CAUGHT" && !ball.fielderMatchPlayerId) {
+    throw new Error("Caught dismissal must have a fielder.");
+  }
+
+  if (ball.dismissalType === "STUMPED" && !ball.fielderMatchPlayerId) {
+    throw new Error("Stumped dismissal must have a wicketkeeper.");
+  }
+
+  if (
+    ball.assistFielderMatchPlayerId &&
+    ball.assistFielderMatchPlayerId === ball.fielderMatchPlayerId
+  ) {
+    throw new Error("Primary and assist fielders must be different.");
+  }
+
+  if (ball.isWide) {
+    if (ball.wideRuns < 1) {
+      throw new Error("Wide delivery must contain at least one Wide run.");
+    }
+
+    if (ball.batterRuns !== 0) {
+      throw new Error("A Wide cannot contain batter runs.");
+    }
+
+    if (ball.byeRuns !== 0 || ball.legByeRuns !== 0) {
+      throw new Error("Wide runs cannot also be Byes or Leg-byes.");
+    }
+
+    if (!ball.wideReason) {
+      throw new Error("Wide delivery must contain a wideReason.");
+    }
+  }
+
+  if (ball.isNoBall) {
+    if (ball.noBallRuns !== 1) {
+      throw new Error("No-ball must contain exactly one No-ball run.");
+    }
+
+    if (ball.noBallReasons.length === 0) {
+      throw new Error("No-ball must contain at least one reason.");
+    }
+  }
+
+  if (ball.isFour && ball.batterRuns !== 4) {
+    throw new Error("isFour requires exactly four batter runs.");
+  }
+
+  if (ball.isSix && ball.batterRuns !== 6) {
+    throw new Error("isSix requires exactly six batter runs.");
+  }
+
+  if (ball.isDotBall !== (ball.isLegalDelivery && ball.totalRuns === 0)) {
+    throw new Error("Invalid isDotBall value.");
+  }
+
+  if (ball.isDeadBall && !ball.deadBallReason) {
+    throw new Error("Dead ball must contain a deadBallReason.");
+  }
+
+  if (!ball.isDeadBall && ball.deadBallReason !== null) {
+    throw new Error("Non-dead-ball delivery cannot contain deadBallReason.");
+  }
+
+  if (ball.isDeadBall) {
+    if (ball.isLegalDelivery) {
+      throw new Error(
+        "The generated immediate Dead-ball delivery cannot be legal.",
+      );
+    }
+
+    if (!ball.isNoBall) {
+      throw new Error(
+        "The generated immediate Dead-ball delivery must be a No-ball.",
+      );
+    }
+
+    if (ball.isWicket) {
+      throw new Error("Immediate Dead-ball delivery cannot contain a wicket.");
+    }
+  }
+}
+
 const generateBall = (
   inningId: string,
   deliveryNo: number,
@@ -299,7 +548,8 @@ const generateBall = (
   nonStrikerMatchPlayerId: string,
   bowlerMatchPlayerId: string,
   wicketKeeperMatchPlayerId: string,
-  fielders: string[],
+  fielders: readonly string[],
+  random: RandomSource = Math.random,
 ): GeneratedBall => {
   let contactType: ContactType | null = null;
   let batOutcome: BatRunOutcome | null = null;
@@ -311,10 +561,18 @@ const generateBall = (
   let runOutEnd: PitchEnd | null = null;
   let runOutPlayer: RunOutPlayer | null = null;
   let runOutPlayerId: string | null = null;
+  let dismissedMatchPlayerId: string | null = null;
   let fielderMatchPlayerId: string | null = null;
   let assistFielderMatchPlayerId: string | null = null;
   let wideReason: WideReason | null = null;
   let noBallReason: NoBallReason | null = null;
+  let deadBallReason: DeadBallReason | null = null;
+  let obstructionScenario: ObstructionScenario | null = null;
+
+  let obstructionBeforeTakenRun: Exclude<
+    BatRunOutcome,
+    "FOUR" | "SIX" | "WICKET"
+  > | null = null;
 
   if (!wicketKeeperMatchPlayerId.trim()) {
     throw new Error("Wicketkeeper player ID cannot be empty.");
@@ -390,49 +648,111 @@ const generateBall = (
     throw new Error("Fielders list must include the bowler.");
   }
 
+  const pick = <T extends string>(options: readonly PercentageOption<T>[]): T =>
+    getRandomByPercentage(options, random);
+
   const fieldersList = createEqualPercentageOptions(uniqueFielders);
-  const bowledType = getRandomByPercentage(bowledTypes);
+  const bowledType = pick(bowledTypes);
 
   if (bowledType === "LEGAL") {
-    contactType = getRandomByPercentage(legalAndNoBallContactTypes);
+    contactType = pick(legalAndNoBallContactTypes);
   } else if (bowledType === "NO_BALL") {
-    contactType = getRandomByPercentage(legalAndNoBallContactTypes);
-    noBallReason = getRandomByPercentage(noBallReasons);
+    noBallReason = pick(noBallReasons);
+
+    deadBallReason =
+      immediateDeadBallReasonByNoBallReason[noBallReason] ?? null;
+
+    if (!deadBallReason) {
+      contactType = pick(legalAndNoBallContactTypes);
+    }
   } else if (bowledType === "WIDE") {
-    contactType = getRandomByPercentage(wideBallContactTypes);
-    wideReason = getRandomByPercentage(wideReasons);
+    contactType = pick(wideBallContactTypes);
+    wideReason = pick(wideReasons);
+  }
+
+  if (deadBallReason) {
+    const generatedBall: GeneratedBall = {
+      inningId,
+      deliveryNo,
+      overNo,
+      ballNo,
+      strikerMatchPlayerId,
+      nonStrikerMatchPlayerId,
+      bowlerMatchPlayerId,
+
+      isLegalDelivery: false,
+      isFreeHit,
+
+      isDotBall: false,
+      isFour: false,
+      isSix: false,
+
+      isWide: false,
+      isNoBall: true,
+      isBye: false,
+      isLegBye: false,
+      isPenalty: false,
+
+      isDeadBall: true,
+      deadBallReason,
+
+      noBallReasons: noBallReason ? [noBallReason] : [],
+      wideReason: null,
+      penaltyRunReason: null,
+
+      batterRuns: 0,
+      noBallRuns: 1,
+      wideRuns: 0,
+      byeRuns: 0,
+      legByeRuns: 0,
+      penaltyRuns: 0,
+
+      extraRuns: 1,
+      totalRuns: 1,
+
+      isWicket: false,
+      dismissalType: null,
+      runOutEnd: null,
+      dismissedMatchPlayerId: null,
+      fielderMatchPlayerId: null,
+      assistFielderMatchPlayerId: null,
+    };
+
+    assertGeneratedBallConsistency(generatedBall);
+
+    return generatedBall;
   }
 
   if (isFreeHit && contactType === "BAT_CONTACT") {
-    batOutcome = getRandomByPercentage(freeHitBatContactOutcomes);
+    batOutcome = pick(freeHitBatContactOutcomes);
   } else if (contactType === "BAT_CONTACT") {
-    batOutcome = getRandomByPercentage(batRunOutcomes);
+    batOutcome = pick(batRunOutcomes);
   } else if (contactType === "BODY_CONTACT") {
-    batOutcome = getRandomByPercentage(runOutcomes);
+    batOutcome = pick(runOutcomes);
   } else if (contactType === "NO_CONTACT") {
-    batOutcome = getRandomByPercentage(runOutcomes);
+    batOutcome = pick(runOutcomes);
   }
 
   if (batOutcome === "WICKET") {
     if (bowledType === "WIDE") {
-      wicketOutcome = getRandomByPercentage(wideWicketOutcomes);
+      wicketOutcome = pick(wideWicketOutcomes);
     } else if (bowledType === "NO_BALL") {
       wicketOutcome =
         contactType === "BAT_CONTACT"
-          ? getRandomByPercentage(noBallBatContactWicketOutcomes)
-          : getRandomByPercentage(noBallNonBatContactWicketOutcomes);
+          ? pick(noBallBatContactWicketOutcomes)
+          : pick(noBallNonBatContactWicketOutcomes);
     } else if (contactType === "BAT_CONTACT") {
-      wicketOutcome = getRandomByPercentage(batContactWicketOutcomes);
+      wicketOutcome = pick(batContactWicketOutcomes);
     } else if (contactType === "BODY_CONTACT") {
-      wicketOutcome = getRandomByPercentage(bodyContactWicketOutcomes);
+      wicketOutcome = pick(bodyContactWicketOutcomes);
     } else {
-      wicketOutcome = getRandomByPercentage(noContactWicketOutcomes);
+      wicketOutcome = pick(noContactWicketOutcomes);
     }
   }
 
   if (wicketOutcome === "RUN_OUT") {
-    runOutBeforeTakenRun = getRandomByPercentage(runOutBeforeTakenRuns);
-    runOutPlayer = getRandomByPercentage(runOutPlayers);
+    runOutBeforeTakenRun = pick(runOutBeforeTakenRuns);
+    runOutPlayer = pick(runOutPlayers);
 
     const completedRuns =
       runOutBeforeTakenRun === "SINGLE"
@@ -450,26 +770,26 @@ const generateBall = (
     } else {
       runOutEnd = changedEnds ? "BOWLER_END" : "STRIKER_END";
     }
-    fielderMatchPlayerId = getRandomByPercentage(fieldersList);
-    const isAssist = getRandomByPercentage(runOutAssistPossibilities);
+    fielderMatchPlayerId = pick(fieldersList);
+    const isAssist = pick(runOutAssistPossibilities);
     const eligibleAssistFielders = uniqueFielders.filter(
       (fielderId) => fielderId !== fielderMatchPlayerId,
     );
 
     if (isAssist === "ASSIST" && eligibleAssistFielders.length > 0) {
-      assistFielderMatchPlayerId = getRandomByPercentage(
+      assistFielderMatchPlayerId = pick(
         createEqualPercentageOptions(eligibleAssistFielders),
       );
     }
   } else if (wicketOutcome === "CAUGHT") {
-    fielderMatchPlayerId = getRandomByPercentage(fieldersList);
-    const isAssist = getRandomByPercentage(caughtAssistPossibilities);
+    fielderMatchPlayerId = pick(fieldersList);
+    const isAssist = pick(caughtAssistPossibilities);
     const eligibleAssistFielders = uniqueFielders.filter(
       (fielderId) => fielderId !== fielderMatchPlayerId,
     );
 
     if (isAssist === "ASSIST" && eligibleAssistFielders.length > 0) {
-      assistFielderMatchPlayerId = getRandomByPercentage(
+      assistFielderMatchPlayerId = pick(
         createEqualPercentageOptions(eligibleAssistFielders),
       );
     }
@@ -491,13 +811,37 @@ const generateBall = (
   ) {
     wicketOutcome = null;
 
-    batOutcome = getRandomByPercentage(invalidFreeHitDismissalRunOutcomes);
+    batOutcome = pick(invalidFreeHitDismissalRunOutcomes);
 
     runOutBeforeTakenRun = null;
     runOutEnd = null;
     runOutPlayerId = null;
     fielderMatchPlayerId = null;
     assistFielderMatchPlayerId = null;
+  }
+
+  if (wicketOutcome === "RUN_OUT") {
+    dismissedMatchPlayerId = runOutPlayerId;
+  } else if (wicketOutcome === "OBSTRUCTING_FIELD") {
+    obstructionScenario =
+      bowledType !== "NO_BALL" && contactType === "BAT_CONTACT"
+        ? pick(obstructionScenarios)
+        : "OTHER_OBSTRUCTION";
+
+    if (obstructionScenario === "PREVENTING_CATCH") {
+      dismissedMatchPlayerId = strikerMatchPlayerId;
+    } else {
+      obstructionBeforeTakenRun = pick(runOutBeforeTakenRuns);
+
+      const obstructingBatter = pick(runOutPlayers);
+
+      dismissedMatchPlayerId =
+        obstructingBatter === "STRIKER"
+          ? strikerMatchPlayerId
+          : nonStrikerMatchPlayerId;
+    }
+  } else if (wicketOutcome) {
+    dismissedMatchPlayerId = strikerMatchPlayerId;
   }
 
   const run: Record<BatRunOutcome, number> = {
@@ -510,11 +854,19 @@ const generateBall = (
     WICKET: 0,
   };
 
+  const dismissalCompletedRunOutcome =
+    wicketOutcome === "RUN_OUT"
+      ? runOutBeforeTakenRun
+      : wicketOutcome === "OBSTRUCTING_FIELD" &&
+          obstructionScenario === "OTHER_OBSTRUCTION"
+        ? obstructionBeforeTakenRun
+        : null;
+
   const batterRuns: number =
     contactType === "BAT_CONTACT" && batOutcome
       ? batOutcome === "WICKET"
-        ? wicketOutcome === "RUN_OUT" && runOutBeforeTakenRun
-          ? (run[runOutBeforeTakenRun] ?? 0)
+        ? dismissalCompletedRunOutcome
+          ? run[dismissalCompletedRunOutcome]
           : 0
         : (run[batOutcome] ?? 0)
       : 0;
@@ -523,8 +875,8 @@ const generateBall = (
     bowledType !== "WIDE"
       ? contactType === "NO_CONTACT" && batOutcome
         ? batOutcome === "WICKET"
-          ? wicketOutcome === "RUN_OUT" && runOutBeforeTakenRun
-            ? (run[runOutBeforeTakenRun] ?? 0)
+          ? dismissalCompletedRunOutcome
+            ? run[dismissalCompletedRunOutcome]
             : 0
           : (run[batOutcome] ?? 0)
         : 0
@@ -533,8 +885,8 @@ const generateBall = (
   const legByeRuns: number =
     contactType === "BODY_CONTACT" && batOutcome
       ? batOutcome === "WICKET"
-        ? wicketOutcome === "RUN_OUT" && runOutBeforeTakenRun
-          ? (run[runOutBeforeTakenRun] ?? 0)
+        ? dismissalCompletedRunOutcome
+          ? run[dismissalCompletedRunOutcome]
           : 0
         : (run[batOutcome] ?? 0)
       : 0;
@@ -544,8 +896,8 @@ const generateBall = (
   const wideRuns: number =
     bowledType === "WIDE"
       ? batOutcome === "WICKET"
-        ? wicketOutcome === "RUN_OUT" && runOutBeforeTakenRun
-          ? (run[runOutBeforeTakenRun] ?? 0) + 1
+        ? dismissalCompletedRunOutcome
+          ? run[dismissalCompletedRunOutcome] + 1
           : 1
         : batOutcome
           ? (run[batOutcome] ?? 0) + 1
@@ -558,7 +910,7 @@ const generateBall = (
 
   const totalRuns: number = batterRuns + extraRuns;
 
-  return {
+  const generatedBall: GeneratedBall = {
     inningId,
     deliveryNo,
     overNo,
@@ -592,15 +944,14 @@ const generateBall = (
     isWicket: wicketOutcome !== null,
     dismissalType: wicketOutcome,
     runOutEnd,
-    dismissedMatchPlayerId:
-      wicketOutcome === "RUN_OUT"
-        ? runOutPlayerId
-        : wicketOutcome
-          ? strikerMatchPlayerId
-          : null,
+    dismissedMatchPlayerId,
     fielderMatchPlayerId,
     assistFielderMatchPlayerId,
   };
+
+  assertGeneratedBallConsistency(generatedBall);
+
+  return generatedBall;
 };
 
 export default generateBall;
