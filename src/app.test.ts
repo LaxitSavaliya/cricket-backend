@@ -1,467 +1,683 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// ─── Mock Data ───────────────────────────────────────────────────────────────
+import app from "./app.js";
 
-const mockTeamHome = {
-  id: "team-home-1",
-  teamName: "Mumbai Indians",
-  shortName: "MI",
-  logoUrl: "https://example.com/mi.png",
-  createdAt: new Date("2024-01-01"),
-  updatedAt: new Date("2024-01-01"),
-};
+/*
+|--------------------------------------------------------------------------
+| Prisma mock
+|--------------------------------------------------------------------------
+*/
 
-const mockTeamAway = {
-  id: "team-away-1",
-  teamName: "Chennai Super Kings",
-  shortName: "CSK",
-  logoUrl: "https://example.com/csk.png",
-  createdAt: new Date("2024-01-01"),
-  updatedAt: new Date("2024-01-01"),
-};
-
-const mockMatch = {
-  id: "match-1",
-  title: "MI vs CSK",
-  matchFormat: "T20",
-  status: "COMPLETED",
-  matchDate: new Date("2024-06-15"),
-  matchTextResult: "MI won by 5 wickets",
-  resultType: "NORMAL",
-  tossDecision: "BAT",
-  firstIningRuns: 180,
-  firstIningWickets: 7,
-  firstIningOvers: 20,
-  secondIningRuns: 181,
-  secondIningWickets: 5,
-  secondIningOvers: 19,
-  homeTeamId: "team-home-1",
-  awayTeamId: "team-away-1",
-  tossWinnerTeamId: "team-home-1",
-  winnerTeamId: "team-home-1",
-  createdAt: new Date("2024-06-15"),
-  updatedAt: new Date("2024-06-15"),
-  homeTeam: mockTeamHome,
-  awayTeam: mockTeamAway,
-  tossWinnerTeam: mockTeamHome,
-  winnerTeam: mockTeamHome,
-};
-
-const mockMatchListItem = {
-  id: "match-1",
-  title: "MI vs CSK",
-  matchFormat: "T20",
-  status: "COMPLETED",
-  matchDate: new Date("2024-06-15"),
-  matchTextResult: "MI won by 5 wickets",
-  resultType: "NORMAL",
-  tossDecision: "BAT",
-  firstIningRuns: 180,
-  firstIningWickets: 7,
-  firstIningOvers: 20,
-  secondIningRuns: 181,
-  secondIningWickets: 5,
-  secondIningOvers: 19,
-  createdAt: new Date("2024-06-15"),
-  updatedAt: new Date("2024-06-15"),
-  homeTeam: {
-    id: "team-home-1",
-    teamName: "Mumbai Indians",
-    shortName: "MI",
-    logoUrl: "https://example.com/mi.png",
-  },
-  awayTeam: {
-    id: "team-away-1",
-    teamName: "Chennai Super Kings",
-    shortName: "CSK",
-    logoUrl: "https://example.com/csk.png",
-  },
-  tossWinnerTeam: {
-    id: "team-home-1",
-    teamName: "Mumbai Indians",
-    shortName: "MI",
-    logoUrl: "https://example.com/mi.png",
-  },
-  winnerTeam: {
-    id: "team-home-1",
-    teamName: "Mumbai Indians",
-    shortName: "MI",
-    logoUrl: "https://example.com/mi.png",
-  },
-};
-
-const mockMatchPlayersData = {
-  homeTeamId: "team-home-1",
-  awayTeamId: "team-away-1",
-  homeTeam: {
-    teamName: "Mumbai Indians",
-    shortName: "MI",
-    logoUrl: "https://example.com/mi.png",
-  },
-  awayTeam: {
-    teamName: "Chennai Super Kings",
-    shortName: "CSK",
-    logoUrl: "https://example.com/csk.png",
-  },
-  matchPlayers: [
-    {
-      teamId: "team-home-1",
-      isPlayingEleven: true,
-      order: 1,
-      battingOrder: 1,
-      player: {
-        id: "player-1",
-        playerName: "rohit_sharma",
-        role: "BATSMAN",
-        photoUrl: "https://example.com/rohit.png",
-        displayName: "Rohit Sharma",
-      },
-    },
-    {
-      teamId: "team-home-1",
-      isPlayingEleven: false,
-      order: null,
-      battingOrder: null,
-      player: {
-        id: "player-2",
-        playerName: "arjun_tendulkar",
-        role: "BOWLER",
-        photoUrl: null,
-        displayName: "Arjun Tendulkar",
-      },
-    },
-    {
-      teamId: "team-away-1",
-      isPlayingEleven: true,
-      order: 1,
-      battingOrder: 1,
-      player: {
-        id: "player-3",
-        playerName: "ms_dhoni",
-        role: "WICKET_KEEPER",
-        photoUrl: "https://example.com/dhoni.png",
-        displayName: "MS Dhoni",
-      },
-    },
-    {
-      teamId: "team-away-1",
-      isPlayingEleven: false,
-      order: null,
-      battingOrder: null,
-      player: {
-        id: "player-4",
-        playerName: "tushar_deshpande",
-        role: "BOWLER",
-        photoUrl: null,
-        displayName: "Tushar Deshpande",
-      },
-    },
-  ],
-};
-
-// ─── Prisma Mock ─────────────────────────────────────────────────────────────
-
-const { findMany, findUnique } = vi.hoisted(() => ({
-  findMany: vi.fn(),
-  findUnique: vi.fn(),
+const { findManyMock, findUniqueMock } = vi.hoisted(() => ({
+  findManyMock: vi.fn(),
+  findUniqueMock: vi.fn(),
 }));
 
 vi.mock("./config/prisma.js", () => ({
   prisma: {
     match: {
-      findMany,
-      findUnique,
+      findMany: findManyMock,
+      findUnique: findUniqueMock,
     },
   },
 }));
 
-import app from "./app.js";
+/*
+|--------------------------------------------------------------------------
+| Shared test data
+|--------------------------------------------------------------------------
+*/
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
+const matchId = "match-202";
+const matchSlug = "mumbai-indians-vs-chennai-super-kings-t20";
+
+const homeTeamId = "team-home-101";
+const awayTeamId = "team-away-102";
+
+const homeTeam = {
+  id: homeTeamId,
+  teamName: "Mumbai Indians",
+  slug: "mumbai-indians",
+  logoUrl: "https://example.com/mumbai-indians.png",
+};
+
+const awayTeam = {
+  id: awayTeamId,
+  teamName: "Chennai Super Kings",
+  slug: "chennai-super-kings",
+  logoUrl: null,
+};
+
+const matchDate = new Date("2026-07-09T00:00:00.000Z");
+
+/*
+|--------------------------------------------------------------------------
+| Raw Prisma results
+|--------------------------------------------------------------------------
+|
+| These objects must match the data selected by Prisma.
+| They should not contain the final formatted API response.
+|
+*/
+
+const matchListQueryResult = {
+  id: matchId,
+  title: "Mumbai Indians vs Chennai Super Kings - T20",
+  slug: matchSlug,
+  matchFormat: "T20",
+  status: "COMPLETED",
+  matchDate,
+
+  homeTeamId,
+  awayTeamId,
+
+  tossWinnerTeamId: homeTeamId,
+  tossDecision: "BAT",
+
+  homeTeam,
+  awayTeam,
+
+  innings: [
+    {
+      teamId: homeTeamId,
+      inningsNo: "FIRST",
+      runs: 186,
+      wickets: 5,
+      balls: 120,
+    },
+    {
+      teamId: awayTeamId,
+      inningsNo: "SECOND",
+      runs: 178,
+      wickets: 8,
+      balls: 120,
+    },
+  ],
+};
+
+const matchDetailsQueryResult = {
+  id: matchId,
+  title: "Mumbai Indians vs Chennai Super Kings - T20",
+  slug: matchSlug,
+  matchFormat: "T20",
+  status: "COMPLETED",
+  matchDate,
+  venue: "Wankhede Stadium",
+  city: "Mumbai",
+  tossWinnerTeamId: homeTeamId,
+  tossDecision: "BAT",
+  homeTeam,
+  awayTeam,
+};
+
+const matchPlayersQueryResult = {
+  homeTeam,
+  awayTeam,
+
+  players: [
+    {
+      teamId: homeTeamId,
+      isPlaying: true,
+      isCaptain: true,
+      isViceCaptain: false,
+      player: {
+        id: "player-home-1",
+        playerName: "Rohit Sharma",
+        displayName: "Rohit",
+        role: "BATSMAN",
+        photoUrl: "https://example.com/rohit-sharma.png",
+      },
+    },
+    {
+      teamId: homeTeamId,
+      isPlaying: true,
+      isCaptain: false,
+      isViceCaptain: true,
+      player: {
+        id: "player-home-2",
+        playerName: "Hardik Pandya",
+        displayName: null,
+        role: "ALL_ROUNDER",
+        photoUrl: null,
+      },
+    },
+    {
+      teamId: homeTeamId,
+      isPlaying: false,
+      isCaptain: false,
+      isViceCaptain: false,
+      player: {
+        id: "player-home-3",
+        playerName: "Arjun Tendulkar",
+        displayName: "   ",
+        role: "BOWLER",
+        photoUrl: null,
+      },
+    },
+    {
+      teamId: awayTeamId,
+      isPlaying: true,
+      isCaptain: true,
+      isViceCaptain: false,
+      player: {
+        id: "player-away-1",
+        playerName: "MS Dhoni",
+        displayName: "Dhoni",
+        role: "BATSMAN",
+        photoUrl: "https://example.com/ms-dhoni.png",
+      },
+    },
+    {
+      teamId: awayTeamId,
+      isPlaying: false,
+      isCaptain: false,
+      isViceCaptain: false,
+      player: {
+        id: "player-away-2",
+        playerName: "Tushar Deshpande",
+        displayName: null,
+        role: "BOWLER",
+        photoUrl: null,
+      },
+    },
+  ],
+};
+
+/*
+|--------------------------------------------------------------------------
+| Setup
+|--------------------------------------------------------------------------
+*/
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("Health Routes", () => {
-  it("GET / should return running status", async () => {
-    const response = await request(app).get("/");
+/*
+|--------------------------------------------------------------------------
+| GET /api/v1/matches
+|--------------------------------------------------------------------------
+*/
+
+describe("GET /api/v1/matches", () => {
+  it("returns an empty array when no matches exist", async () => {
+    findManyMock.mockResolvedValueOnce([]);
+
+    const response = await request(app).get("/api/v1/matches");
 
     expect(response.status).toBe(200);
+
     expect(response.body).toEqual({
       success: true,
-      message: "Cricket backend API is running",
+      message: "Matches fetched successfully.",
+      data: [],
     });
+
+    expect(findManyMock).toHaveBeenCalledOnce();
+
+    expect(findManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: {
+          matchDate: "desc",
+        },
+      }),
+    );
+
+    expect(findUniqueMock).not.toHaveBeenCalled();
   });
 
-  it("GET /health should return service health info", async () => {
-    const response = await request(app).get("/health");
+  it("returns formatted matches with team innings summaries", async () => {
+    findManyMock.mockResolvedValueOnce([matchListQueryResult]);
+
+    const response = await request(app).get("/api/v1/matches");
 
     expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.message).toBe("Service healthy");
-    expect(response.body.data.environment).toBeDefined();
-    expect(response.body.data.uptime).toBeTypeOf("number");
-    expect(response.body.data.timestamp).toBeDefined();
-  });
-});
 
-describe("API V1 Routes", () => {
-  it("GET /api/v1 should return API v1 running status", async () => {
-    const response = await request(app).get("/api/v1");
-
-    expect(response.status).toBe(200);
     expect(response.body).toEqual({
       success: true,
-      message: "Cricket API v1 is running",
+      message: "Matches fetched successfully.",
+      data: [
+        {
+          id: matchId,
+          title: "Mumbai Indians vs Chennai Super Kings - T20",
+          slug: matchSlug,
+          matchFormat: "T20",
+          status: "COMPLETED",
+          matchDate: "2026-07-09T00:00:00.000Z",
+          tossWinnerTeamId: homeTeamId,
+          tossDecision: "BAT",
+
+          homeTeam: {
+            id: homeTeamId,
+            teamName: "Mumbai Indians",
+            shortName: "MI",
+            slug: "mumbai-indians",
+            logoUrl: "https://example.com/mumbai-indians.png",
+            inningsNo: "FIRST",
+            runs: 186,
+            wickets: 5,
+            balls: 120,
+          },
+
+          awayTeam: {
+            id: awayTeamId,
+            teamName: "Chennai Super Kings",
+            shortName: "CSK",
+            slug: "chennai-super-kings",
+            logoUrl: null,
+            inningsNo: "SECOND",
+            runs: 178,
+            wickets: 8,
+            balls: 120,
+          },
+        },
+      ],
+    });
+
+    expect(response.body.data[0]).not.toHaveProperty("homeTeamId");
+    expect(response.body.data[0]).not.toHaveProperty("awayTeamId");
+    expect(response.body.data[0]).not.toHaveProperty("innings");
+    expect(response.body.data[0]).not.toHaveProperty("createdAt");
+    expect(response.body.data[0]).not.toHaveProperty("updatedAt");
+
+    expect(findManyMock).toHaveBeenCalledOnce();
+    expect(findUniqueMock).not.toHaveBeenCalled();
+  });
+
+  it("returns default score values when innings have not been created", async () => {
+    findManyMock.mockResolvedValueOnce([
+      {
+        ...matchListQueryResult,
+        status: "UPCOMING",
+        tossWinnerTeamId: null,
+        tossDecision: null,
+        innings: [],
+      },
+    ]);
+
+    const response = await request(app).get("/api/v1/matches");
+
+    expect(response.status).toBe(200);
+
+    expect(response.body.data[0].homeTeam).toEqual({
+      id: homeTeamId,
+      teamName: "Mumbai Indians",
+      shortName: "MI",
+      slug: "mumbai-indians",
+      logoUrl: "https://example.com/mumbai-indians.png",
+      inningsNo: null,
+      runs: 0,
+      wickets: 0,
+      balls: 0,
+    });
+
+    expect(response.body.data[0].awayTeam).toEqual({
+      id: awayTeamId,
+      teamName: "Chennai Super Kings",
+      shortName: "CSK",
+      slug: "chennai-super-kings",
+      logoUrl: null,
+      inningsNo: null,
+      runs: 0,
+      wickets: 0,
+      balls: 0,
     });
   });
 });
 
-describe("Match Routes", () => {
-  describe("GET /api/v1/matches", () => {
-    it("should return an empty list when no matches exist", async () => {
-      findMany.mockResolvedValueOnce([]);
+/*
+|--------------------------------------------------------------------------
+| GET /api/v1/matches/:slug
+|--------------------------------------------------------------------------
+*/
 
-      const response = await request(app).get("/api/v1/matches");
+describe("GET /api/v1/matches/:slug", () => {
+  it("returns match details for a valid slug", async () => {
+    findUniqueMock.mockResolvedValueOnce(matchDetailsQueryResult);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        success: true,
-        message: "Matches fetched successfully",
-        data: [],
-      });
-      expect(findMany).toHaveBeenCalledOnce();
+    const response = await request(app).get(`/api/v1/matches/${matchSlug}`);
+
+    expect(response.status).toBe(200);
+
+    expect(response.body).toEqual({
+      success: true,
+      message: "Match fetched successfully.",
+      data: {
+        id: matchId,
+        title: "Mumbai Indians vs Chennai Super Kings - T20",
+        slug: matchSlug,
+        matchFormat: "T20",
+        status: "COMPLETED",
+        matchDate: "2026-07-09T00:00:00.000Z",
+        venue: "Wankhede Stadium",
+        city: "Mumbai",
+        tossWinnerTeamId: homeTeamId,
+        tossDecision: "BAT",
+
+        homeTeam: {
+          id: homeTeamId,
+          teamName: "Mumbai Indians",
+          shortName: "MI",
+          slug: "mumbai-indians",
+          logoUrl: "https://example.com/mumbai-indians.png",
+        },
+
+        awayTeam: {
+          id: awayTeamId,
+          teamName: "Chennai Super Kings",
+          shortName: "CSK",
+          slug: "chennai-super-kings",
+          logoUrl: null,
+        },
+      },
     });
 
-    it("should return a list of matches", async () => {
-      findMany.mockResolvedValueOnce([mockMatchListItem]);
+    expect(findUniqueMock).toHaveBeenCalledOnce();
 
-      const response = await request(app).get("/api/v1/matches");
+    expect(findUniqueMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          slug: matchSlug,
+        },
+      }),
+    );
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe("Matches fetched successfully");
-      expect(response.body.data).toHaveLength(1);
-      expect(response.body.data[0].id).toBe("match-1");
-      expect(response.body.data[0].title).toBe("MI vs CSK");
-      expect(response.body.data[0].homeTeam.shortName).toBe("MI");
-      expect(response.body.data[0].awayTeam.shortName).toBe("CSK");
-    });
+    expect(findManyMock).not.toHaveBeenCalled();
   });
 
-  describe("GET /api/v1/matches/:id", () => {
-    it("should return match details for a valid ID", async () => {
-      findUnique.mockResolvedValueOnce(mockMatch);
-
-      const response = await request(app).get("/api/v1/matches/match-1");
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe("Match fetched successfully");
-      expect(response.body.data.id).toBe("match-1");
-      expect(response.body.data.title).toBe("MI vs CSK");
-      expect(response.body.data.homeTeam.teamName).toBe("Mumbai Indians");
-      expect(response.body.data.awayTeam.teamName).toBe("Chennai Super Kings");
-      expect(response.body.data.matchFormat).toBe("T20");
-      expect(response.body.data.status).toBe("COMPLETED");
-      expect(findUnique).toHaveBeenCalledOnce();
+  it("supports nullable venue, city and toss fields", async () => {
+    findUniqueMock.mockResolvedValueOnce({
+      ...matchDetailsQueryResult,
+      venue: null,
+      city: null,
+      tossWinnerTeamId: null,
+      tossDecision: null,
     });
 
-    it("should return 404 for a non-existent match ID", async () => {
-      findUnique.mockResolvedValueOnce(null);
+    const response = await request(app).get(`/api/v1/matches/${matchSlug}`);
 
-      const response = await request(app).get(
-        "/api/v1/matches/non-existent-id",
-      );
-
-      expect(response.status).toBe(404);
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toContain("not found");
-    });
+    expect(response.status).toBe(200);
+    expect(response.body.data.venue).toBeNull();
+    expect(response.body.data.city).toBeNull();
+    expect(response.body.data.tossWinnerTeamId).toBeNull();
+    expect(response.body.data.tossDecision).toBeNull();
   });
 
-  describe("GET /api/v1/matches/:id/players", () => {
-    it("should return players grouped by team with playing/bench split", async () => {
-      findUnique.mockResolvedValueOnce(mockMatchPlayersData);
+  it("returns 404 when the match does not exist", async () => {
+    findUniqueMock.mockResolvedValueOnce(null);
 
-      const response = await request(app).get(
-        "/api/v1/matches/match-1/players",
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe("Players fetched successfully");
-
-      const { teams } = response.body.data;
-
-      // Home team info
-      expect(teams.homeTeam.id).toBe("team-home-1");
-      expect(teams.homeTeam.teamName).toBe("Mumbai Indians");
-      expect(teams.homeTeam.shortName).toBe("MI");
-      expect(teams.homeTeam.logoUrl).toBe("https://example.com/mi.png");
-
-      // Home team playing players
-      expect(teams.homeTeam.players.playingPlayers).toHaveLength(1);
-      expect(teams.homeTeam.players.playingPlayers[0]).toEqual({
-        id: "player-1",
-        playerName: "rohit_sharma",
-        role: "BATSMAN",
-        photoUrl: "https://example.com/rohit.png",
-        displayName: "Rohit Sharma",
-      });
-
-      // Home team bench players
-      expect(teams.homeTeam.players.benchPlayers).toHaveLength(1);
-      expect(teams.homeTeam.players.benchPlayers[0]).toEqual({
-        id: "player-2",
-        playerName: "arjun_tendulkar",
-        role: "BOWLER",
-        photoUrl: null,
-        displayName: "Arjun Tendulkar",
-      });
-
-      // Away team info
-      expect(teams.awayTeam.id).toBe("team-away-1");
-      expect(teams.awayTeam.teamName).toBe("Chennai Super Kings");
-      expect(teams.awayTeam.shortName).toBe("CSK");
-      expect(teams.awayTeam.logoUrl).toBe("https://example.com/csk.png");
-
-      // Away team playing players
-      expect(teams.awayTeam.players.playingPlayers).toHaveLength(1);
-      expect(teams.awayTeam.players.playingPlayers[0]).toEqual({
-        id: "player-3",
-        playerName: "ms_dhoni",
-        role: "WICKET_KEEPER",
-        photoUrl: "https://example.com/dhoni.png",
-        displayName: "MS Dhoni",
-      });
-
-      // Away team bench players
-      expect(teams.awayTeam.players.benchPlayers).toHaveLength(1);
-      expect(teams.awayTeam.players.benchPlayers[0]).toEqual({
-        id: "player-4",
-        playerName: "tushar_deshpande",
-        role: "BOWLER",
-        photoUrl: null,
-        displayName: "Tushar Deshpande",
-      });
-
-      expect(findUnique).toHaveBeenCalledOnce();
-    });
-
-    it("should return 404 for players of a non-existent match", async () => {
-      findUnique.mockResolvedValueOnce(null);
-
-      const response = await request(app).get(
-        "/api/v1/matches/non-existent-id/players",
-      );
-
-      expect(response.status).toBe(404);
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toContain("not found");
-    });
-  });
-
-  describe("GET /api/v1/matches/:id/score", () => {
-    it("should return match score for a valid ID", async () => {
-      const mockScoreData = {
-        ...mockMatch,
-        matchPlayers: [
-          {
-            teamId: "team-home-1",
-            playerId: "player-1",
-            isPlayingEleven: true,
-            order: 1,
-            battingOrder: 1,
-            player: { id: "player-1", playerName: "rohit_sharma" },
-          },
-        ],
-        balls: [
-          {
-            inningsNo: 1,
-            strikerId: "player-1",
-            bowlerId: "player-3",
-            batterRuns: 4,
-            wideRuns: 0,
-            noBallRuns: 0,
-            byeRuns: 0,
-            legByeRuns: 0,
-            penaltyRuns: 0,
-            isWide: false,
-            isNoBall: false,
-            isBye: false,
-            isLegBye: false,
-            isPenalty: false,
-            isDeadBall: false,
-            boundaryType: "FOUR",
-            isWicket: false,
-          },
-        ],
-      };
-      findUnique.mockResolvedValueOnce(mockScoreData);
-
-      const response = await request(app).get("/api/v1/matches/match-1/score");
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe("Score fetched successfully");
-      expect(response.body.data.firstInning.score.run).toBe(180);
-      expect(
-        response.body.data.firstInning.playerBattingPerformance[0].runs,
-      ).toBe(4);
-      expect(
-        response.body.data.firstInning.playerBattingPerformance[0].fours,
-      ).toBe(1);
-      expect(response.body.data.firstInning.partnership).toHaveLength(1);
-      expect(response.body.data.firstInning.partnership[0]).toEqual({
-        runs: 4,
-        balls: 1,
-        wicket: 1,
-        player1Name: "rohit_sharma",
-        player1Runs: 4,
-        player1Balls: 1,
-        player2Name: "",
-        player2Runs: 0,
-        player2Balls: 0,
-      });
-    });
-
-    it("should return 404 for score of a non-existent match", async () => {
-      findUnique.mockResolvedValueOnce(null);
-
-      const response = await request(app).get(
-        "/api/v1/matches/non-existent-id/score",
-      );
-
-      expect(response.status).toBe(404);
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toContain("not found");
-    });
-  });
-});
-
-describe("404 Handler", () => {
-  it("GET /invalid-route should return 404", async () => {
-    const response = await request(app).get("/invalid-route");
+    const response = await request(app).get("/api/v1/matches/unknown-match");
 
     expect(response.status).toBe(404);
-    expect(response.body.success).toBe(false);
-    expect(response.body.message).toContain(
-      "Route GET /invalid-route not found",
+
+    expect(response.body).toEqual({
+      success: false,
+      message: "Match not found.",
+      data: null,
+    });
+
+    expect(findUniqueMock).toHaveBeenCalledOnce();
+
+    expect(findUniqueMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          slug: "unknown-match",
+        },
+      }),
     );
   });
 
-  it("GET /api/v1/unknown should return 404", async () => {
-    const response = await request(app).get("/api/v1/unknown");
+  it("does not expose database timestamps or internal team IDs", async () => {
+    findUniqueMock.mockResolvedValueOnce(matchDetailsQueryResult);
 
-    expect(response.status).toBe(404);
-    expect(response.body.success).toBe(false);
-    expect(response.body.message).toContain("not found");
+    const response = await request(app).get(`/api/v1/matches/${matchSlug}`);
+
+    expect(response.status).toBe(200);
+
+    expect(response.body.data).not.toHaveProperty("homeTeamId");
+    expect(response.body.data).not.toHaveProperty("awayTeamId");
+    expect(response.body.data).not.toHaveProperty("createdAt");
+    expect(response.body.data).not.toHaveProperty("updatedAt");
+
+    expect(response.body.data.homeTeam).not.toHaveProperty("createdAt");
+    expect(response.body.data.homeTeam).not.toHaveProperty("updatedAt");
+
+    expect(response.body.data.awayTeam).not.toHaveProperty("createdAt");
+    expect(response.body.data.awayTeam).not.toHaveProperty("updatedAt");
+  });
+});
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/v1/matches/:slug/players
+|--------------------------------------------------------------------------
+*/
+
+describe("GET /api/v1/matches/:slug/players", () => {
+  it("returns playing and bench players grouped by team", async () => {
+    findUniqueMock.mockResolvedValueOnce(matchPlayersQueryResult);
+
+    const response = await request(app).get(
+      `/api/v1/matches/${matchSlug}/players`,
+    );
+
+    expect(response.status).toBe(200);
+
+    expect(response.body).toEqual({
+      success: true,
+      message: "Match players fetched successfully.",
+      data: {
+        homeTeam: {
+          id: homeTeamId,
+          teamName: "Mumbai Indians",
+          shortName: "MI",
+          slug: "mumbai-indians",
+          logoUrl: "https://example.com/mumbai-indians.png",
+
+          players: [
+            {
+              id: "player-home-1",
+              playerName: "Rohit Sharma",
+              displayName: "Rohit",
+              role: "BATSMAN",
+              photoUrl: "https://example.com/rohit-sharma.png",
+              isCaptain: true,
+              isViceCaptain: false,
+            },
+            {
+              id: "player-home-2",
+              playerName: "Hardik Pandya",
+              displayName: "Hardik Pandya",
+              role: "ALL_ROUNDER",
+              photoUrl: null,
+              isCaptain: false,
+              isViceCaptain: true,
+            },
+          ],
+
+          benchPlayers: [
+            {
+              id: "player-home-3",
+              playerName: "Arjun Tendulkar",
+              displayName: "Arjun Tendulkar",
+              role: "BOWLER",
+              photoUrl: null,
+              isCaptain: false,
+              isViceCaptain: false,
+            },
+          ],
+        },
+
+        awayTeam: {
+          id: awayTeamId,
+          teamName: "Chennai Super Kings",
+          shortName: "CSK",
+          slug: "chennai-super-kings",
+          logoUrl: null,
+
+          players: [
+            {
+              id: "player-away-1",
+              playerName: "MS Dhoni",
+              displayName: "Dhoni",
+              role: "BATSMAN",
+              photoUrl: "https://example.com/ms-dhoni.png",
+              isCaptain: true,
+              isViceCaptain: false,
+            },
+          ],
+
+          benchPlayers: [
+            {
+              id: "player-away-2",
+              playerName: "Tushar Deshpande",
+              displayName: "Tushar Deshpande",
+              role: "BOWLER",
+              photoUrl: null,
+              isCaptain: false,
+              isViceCaptain: false,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(findUniqueMock).toHaveBeenCalledOnce();
+
+    expect(findUniqueMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          slug: matchSlug,
+        },
+      }),
+    );
+
+    expect(findManyMock).not.toHaveBeenCalled();
   });
 
-  it("POST /api/v1/matches should return 404 for unsupported method", async () => {
+  it("returns empty player arrays when no players are assigned", async () => {
+    findUniqueMock.mockResolvedValueOnce({
+      homeTeam,
+      awayTeam,
+      players: [],
+    });
+
+    const response = await request(app).get(
+      `/api/v1/matches/${matchSlug}/players`,
+    );
+
+    expect(response.status).toBe(200);
+
+    expect(response.body.data.homeTeam.players).toEqual([]);
+    expect(response.body.data.homeTeam.benchPlayers).toEqual([]);
+    expect(response.body.data.awayTeam.players).toEqual([]);
+    expect(response.body.data.awayTeam.benchPlayers).toEqual([]);
+  });
+
+  it("returns the full team name for a single-word team name", async () => {
+    findUniqueMock.mockResolvedValueOnce({
+      homeTeam: {
+        ...homeTeam,
+        teamName: "India",
+      },
+      awayTeam: {
+        ...awayTeam,
+        teamName: "England",
+      },
+      players: [],
+    });
+
+    const response = await request(app).get(
+      `/api/v1/matches/${matchSlug}/players`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.homeTeam.shortName).toBe("India");
+    expect(response.body.data.awayTeam.shortName).toBe("England");
+  });
+
+  it("falls back to playerName when displayName is null or blank", async () => {
+    findUniqueMock.mockResolvedValueOnce(matchPlayersQueryResult);
+
+    const response = await request(app).get(
+      `/api/v1/matches/${matchSlug}/players`,
+    );
+
+    expect(response.status).toBe(200);
+
+    const homeTeamPlayers = response.body.data.homeTeam.players;
+    const homeTeamBenchPlayers = response.body.data.homeTeam.benchPlayers;
+
+    expect(homeTeamPlayers[1].displayName).toBe("Hardik Pandya");
+    expect(homeTeamBenchPlayers[0].displayName).toBe("Arjun Tendulkar");
+  });
+
+  it("returns 404 when the match does not exist", async () => {
+    findUniqueMock.mockResolvedValueOnce(null);
+
+    const response = await request(app).get(
+      "/api/v1/matches/unknown-match/players",
+    );
+
+    expect(response.status).toBe(404);
+
+    expect(response.body).toEqual({
+      success: false,
+      message: "Match not found.",
+      data: null,
+    });
+
+    expect(findUniqueMock).toHaveBeenCalledOnce();
+
+    expect(findUniqueMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          slug: "unknown-match",
+        },
+      }),
+    );
+  });
+
+  it("does not expose MatchPlayer internal fields", async () => {
+    findUniqueMock.mockResolvedValueOnce(matchPlayersQueryResult);
+
+    const response = await request(app).get(
+      `/api/v1/matches/${matchSlug}/players`,
+    );
+
+    expect(response.status).toBe(200);
+
+    const player = response.body.data.homeTeam.players[0];
+
+    expect(player).not.toHaveProperty("teamId");
+    expect(player).not.toHaveProperty("isPlaying");
+    expect(player).not.toHaveProperty("createdAt");
+    expect(player).not.toHaveProperty("updatedAt");
+  });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Route safety
+|--------------------------------------------------------------------------
+*/
+
+describe("Match route safety", () => {
+  it("does not treat the players route as a normal match-detail route", async () => {
+    findUniqueMock.mockResolvedValueOnce(matchPlayersQueryResult);
+
+    const response = await request(app).get(
+      `/api/v1/matches/${matchSlug}/players`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.message).toBe("Match players fetched successfully.");
+
+    expect(findUniqueMock).toHaveBeenCalledOnce();
+  });
+
+  it("returns 404 for unsupported match methods", async () => {
     const response = await request(app).post("/api/v1/matches");
 
     expect(response.status).toBe(404);
@@ -469,5 +685,8 @@ describe("404 Handler", () => {
     expect(response.body.message).toContain(
       "Route POST /api/v1/matches not found",
     );
+
+    expect(findManyMock).not.toHaveBeenCalled();
+    expect(findUniqueMock).not.toHaveBeenCalled();
   });
 });
