@@ -1,17 +1,11 @@
 import { Router } from "express";
 
-import {
-  getMatch,
-  getMatches,
-  getPlayers,
-  getScore,
-} from "./match.controller.js";
+import { getMatch, getMatches, getMatchPlayers } from "./match.controller.js";
 
 const matchRouter: Router = Router();
 
 matchRouter.get("/", getMatches);
-matchRouter.get("/:id", getMatch);
-matchRouter.get("/:id/players", getPlayers);
-matchRouter.get("/:id/score", getScore);
+matchRouter.get("/:slug", getMatch);
+matchRouter.get("/:slug/players", getMatchPlayers);
 
 export default matchRouter;
