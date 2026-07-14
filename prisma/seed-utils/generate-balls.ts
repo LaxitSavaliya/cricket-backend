@@ -1,14 +1,10 @@
-import {
-  MatchInningNo,
-  MatchInningStatus,
-  type PlayerRole,
-} from "../../src/generated/prisma/enums.js";
-import type { ballType } from "../seed-data/balls.js";
-import type { matchInning } from "../seed-data/matchInnings.js";
+import { PitchEnd, PlayerRole } from "../../src/generated/prisma/enums.js";
 import generateBall, {
   getRandomByPercentage,
   type PercentageOption,
+  type RandomSource,
 } from "./generate-ball.js";
+import type { ballType, matchInning } from "./generate-matchData.js";
 
 type BowlingPlayer = {
   value: string;
@@ -16,299 +12,404 @@ type BowlingPlayer = {
 };
 
 const generateBowlingPlayerPercentage = <T extends string>(
-  players: {
+  players: readonly {
     value: T;
     role: Exclude<PlayerRole, "BATSMAN">;
   }[],
 ): readonly PercentageOption<T>[] => {
   if (players.length === 0) {
-    return [];
+    throw new Error("Bowling players cannot be empty.");
   }
+
+  const bowlerCount = players.filter(
+    (player) => player.role === "BOWLER",
+  ).length;
 
   const allRounderCount = players.filter(
     (player) => player.role === "ALL_ROUNDER",
   ).length;
 
-  const bowlerCount = players.length - allRounderCount;
+  const hasBothRoles = bowlerCount > 0 && allRounderCount > 0;
 
-  const allRounderPercentage =
-    allRounderCount > 0 ? Math.floor(25 / allRounderCount) : 0;
-  const bowlerPercentage = bowlerCount > 0 ? Math.floor(75 / bowlerCount) : 0;
+  const bowlerPool = bowlerCount === 0 ? 0 : hasBothRoles ? 75 : 100;
 
-  const remainingPercentage =
-    100 -
-    (allRounderPercentage * allRounderCount + bowlerPercentage * bowlerCount);
+  const allRounderPool = allRounderCount === 0 ? 0 : hasBothRoles ? 25 : 100;
 
-  let remainingAdded = false;
+  const options: PercentageOption<T>[] = players.map((player) => ({
+    value: player.value,
+    percentage:
+      player.role === "BOWLER"
+        ? bowlerPool / bowlerCount
+        : allRounderPool / allRounderCount,
+  }));
 
-  return players.map((player) => {
-    let percentage =
-      player.role === "ALL_ROUNDER" ? allRounderPercentage : bowlerPercentage;
+  const currentTotal = options.reduce(
+    (sum, option) => sum + option.percentage,
+    0,
+  );
 
-    if (
-      !remainingAdded &&
-      (bowlerCount > 0
-        ? player.role === "BOWLER"
-        : player.role === "ALL_ROUNDER") &&
-      remainingPercentage > 0
-    ) {
-      percentage += remainingPercentage;
-      remainingAdded = true;
+  const lastOption = options.at(-1);
+
+  if (!lastOption) {
+    throw new Error("Bowling players cannot be empty.");
+  }
+
+  return options.map((option, index) =>
+    index === options.length - 1
+      ? {
+          ...option,
+          percentage: option.percentage + (100 - currentTotal),
+        }
+      : option,
+  );
+};
+
+const buildBowlingPlan = (
+  players: readonly BowlingPlayer[],
+  overs: number,
+  maxBowlerOvers: number,
+  random: RandomSource,
+): string[] => {
+  const usedOvers = new Map(players.map((player) => [player.value, 0]));
+
+  const plan: string[] = [];
+
+  const search = (): boolean => {
+    if (plan.length === overs) {
+      return true;
     }
 
-    return {
-      value: player.value,
-      percentage,
-    };
-  });
+    const previousBowlerId = plan.at(-1);
+
+    const candidates = players.filter(
+      (player) =>
+        player.value !== previousBowlerId &&
+        (usedOvers.get(player.value) ?? 0) < maxBowlerOvers,
+    );
+
+    const remainingCandidates = [...candidates];
+
+    while (remainingCandidates.length > 0) {
+      const options = generateBowlingPlayerPercentage(remainingCandidates);
+
+      const selectedBowlerId = getRandomByPercentage(options, random);
+
+      const selectedIndex = remainingCandidates.findIndex(
+        (player) => player.value === selectedBowlerId,
+      );
+
+      const selectedPlayer = remainingCandidates[selectedIndex];
+
+      if (!selectedPlayer) {
+        throw new Error("Selected bowler was not found.");
+      }
+
+      remainingCandidates.splice(selectedIndex, 1);
+
+      plan.push(selectedBowlerId);
+
+      usedOvers.set(
+        selectedBowlerId,
+        (usedOvers.get(selectedBowlerId) ?? 0) + 1,
+      );
+
+      if (search()) {
+        return true;
+      }
+
+      plan.pop();
+
+      usedOvers.set(
+        selectedBowlerId,
+        (usedOvers.get(selectedBowlerId) ?? 1) - 1,
+      );
+    }
+
+    return false;
+  };
+
+  if (!search()) {
+    throw new Error(
+      "Unable to create a valid bowling plan with the supplied limits.",
+    );
+  }
+
+  return plan;
 };
 
 export const generateBalls = (
   matchInning: matchInning,
-  battingPlayers: string[],
-  bowlingPlayers: BowlingPlayer[],
-  fielders: string[],
+  battingPlayers: readonly string[],
+  bowlingPlayers: readonly BowlingPlayer[],
+  wicketKeeperMatchPlayerId: string,
+  fielders: readonly string[],
   maxBowlerOvers: number,
   startId: number,
+  random: RandomSource = Math.random,
 ): ballType[] => {
-  const balls: ballType[] = [];
   const overs = matchInning.maxOvers;
   const inningId = matchInning.id;
-  let newId = startId;
+
+  if (!inningId.trim()) {
+    throw new Error("Inning ID cannot be empty.");
+  }
+
+  if (!Number.isInteger(overs) || overs <= 0) {
+    throw new Error("maxOvers must be a positive integer.");
+  }
+
+  if (!Number.isInteger(maxBowlerOvers) || maxBowlerOvers <= 0) {
+    throw new Error("maxBowlerOvers must be a positive integer.");
+  }
+
+  if (!Number.isInteger(startId) || startId <= 0) {
+    throw new Error("startId must be a positive integer.");
+  }
+
+  if (
+    matchInning.target !== null &&
+    (!Number.isInteger(matchInning.target) || matchInning.target <= 0)
+  ) {
+    throw new Error("Innings target must be a positive integer when provided.");
+  }
+
+  if (battingPlayers.length < 2) {
+    throw new Error("At least two batting players are required.");
+  }
+
+  if (bowlingPlayers.length === 0) {
+    throw new Error("At least one bowling player is required.");
+  }
+
+  if (overs > 1 && bowlingPlayers.length < 2) {
+    throw new Error(
+      "At least two bowling players are required for multiple overs.",
+    );
+  }
+
+  if (!wicketKeeperMatchPlayerId.trim()) {
+    throw new Error("Wicketkeeper player ID cannot be empty.");
+  }
+
+  if (battingPlayers.some((playerId) => !playerId.trim())) {
+    throw new Error("Batting player IDs cannot be empty.");
+  }
+
+  if (bowlingPlayers.some((player) => !player.value.trim())) {
+    throw new Error("Bowling player IDs cannot be empty.");
+  }
+
+  if (fielders.some((playerId) => !playerId.trim())) {
+    throw new Error("Fielder IDs cannot be empty.");
+  }
+
+  if (new Set(battingPlayers).size !== battingPlayers.length) {
+    throw new Error("Batting players cannot contain duplicates.");
+  }
+
+  const bowlingPlayerIds = bowlingPlayers.map((player) => player.value);
+
+  if (bowlingPlayerIds.includes(wicketKeeperMatchPlayerId)) {
+    throw new Error(
+      "The wicketkeeper cannot be included in the bowling players.",
+    );
+  }
+
+  if (new Set(bowlingPlayerIds).size !== bowlingPlayerIds.length) {
+    throw new Error("Bowling players cannot contain duplicates.");
+  }
+
+  if (new Set(fielders).size !== fielders.length) {
+    throw new Error("Fielders cannot contain duplicates.");
+  }
+
+  if (!fielders.includes(wicketKeeperMatchPlayerId)) {
+    throw new Error("Fielders must include the wicketkeeper.");
+  }
+
+  for (const bowlingPlayerId of bowlingPlayerIds) {
+    if (!fielders.includes(bowlingPlayerId)) {
+      throw new Error(
+        `Bowling player "${bowlingPlayerId}" must be included in fielders.`,
+      );
+    }
+  }
+
+  const battingPlayerIdSet = new Set(battingPlayers);
+
+  if (fielders.some((fielderId) => battingPlayerIdSet.has(fielderId))) {
+    throw new Error("Batting players cannot be included in fielders.");
+  }
 
   const totalPossibleOvers = bowlingPlayers.length * maxBowlerOvers;
 
   if (totalPossibleOvers < overs) {
-    throw new Error("Not enough bowling options to complete the innings.");
+    throw new Error("Not enough bowling capacity to complete the innings.");
   }
 
-  if (matchInning.inningsNo === MatchInningNo.SECOND && !matchInning.target) {
-    throw new Error("Target can't be null for second innings.");
-  }
+  const bowlingPlan = buildBowlingPlan(
+    bowlingPlayers,
+    overs,
+    maxBowlerOvers,
+    random,
+  );
 
-  const bowlingPlayersWithPercentage =
-    generateBowlingPlayerPercentage(bowlingPlayers);
+  const balls: ballType[] = [];
 
-  const bowlerOvers = new Map<string, number>();
-
-  for (const player of bowlingPlayers) {
-    bowlerOvers.set(player.value, 0);
-  }
-
-  let isLastBallNoBall = false;
+  let newId = startId;
   let deliveryNo = 1;
-  let strikerMatchPlayerId = 0;
-  let nonStrikerMatchPlayerId = 1;
-  let bowlerMatchPlayerId = getRandomByPercentage(bowlingPlayersWithPercentage);
+  let currentBallIsFreeHit = false;
+  let inningRuns = 0;
 
-  let inningsRuns = 0;
+  let strikerIndex = 0;
+  let nonStrikerIndex = 1;
+  let nextBatterIndex = 2;
 
-  const swapStrike = () => {
-    [strikerMatchPlayerId, nonStrikerMatchPlayerId] = [
-      nonStrikerMatchPlayerId,
-      strikerMatchPlayerId,
-    ];
+  const swapStrike = (): void => {
+    [strikerIndex, nonStrikerIndex] = [nonStrikerIndex, strikerIndex];
   };
 
-  const getValidBall = (overNo: number, ballNo: number): ballType => {
-    while (true) {
+  overLoop: for (let overNo = 0; overNo < overs; overNo++) {
+    // Batters change ends after a completed over.
+    if (overNo > 0) {
+      swapStrike();
+    }
+
+    const bowlerMatchPlayerId = bowlingPlan[overNo];
+
+    if (!bowlerMatchPlayerId) {
+      throw new Error(`Missing bowler for over ${overNo}.`);
+    }
+
+    let legalBallNo = 1;
+    let deliveryEventsInOver = 0;
+
+    while (legalBallNo <= 6) {
+      deliveryEventsInOver++;
+
+      // Safety against an injected RNG that generates
+      // endless Wides or No-balls.
+      if (deliveryEventsInOver > 100) {
+        throw new Error(
+          `Over ${overNo} exceeded 100 delivery events without completing.`,
+        );
+      }
+
+      const strikerIdBeforeBall = battingPlayers[strikerIndex];
+
+      const nonStrikerIdBeforeBall = battingPlayers[nonStrikerIndex];
+
+      if (!strikerIdBeforeBall || !nonStrikerIdBeforeBall) {
+        throw new Error("Current batters could not be resolved.");
+      }
+
       const ball: ballType = {
         ...generateBall(
           inningId,
           deliveryNo,
           overNo,
-          ballNo,
-          isLastBallNoBall,
-          battingPlayers[strikerMatchPlayerId]!,
-          battingPlayers[nonStrikerMatchPlayerId]!,
+          legalBallNo,
+          currentBallIsFreeHit,
+          strikerIdBeforeBall,
+          nonStrikerIdBeforeBall,
           bowlerMatchPlayerId,
+          wicketKeeperMatchPlayerId,
           fielders,
+          random,
         ),
         id: String(newId),
       };
 
-      if (matchInning.inningsNo !== MatchInningNo.SECOND) {
-        return ball;
-      }
-
-      const requiredRuns = matchInning.target! - inningsRuns;
-
-      if (requiredRuns === 2 && ball.totalRuns === 3) {
-        continue;
-      }
-
-      if (
-        requiredRuns === 1 &&
-        (ball.totalRuns === 2 || ball.totalRuns === 3)
-      ) {
-        continue;
-      }
-
-      return ball;
-    }
-  };
-
-  overLoop: for (let i = 0; i < overs; i++) {
-    if (i > 0) {
-      swapStrike();
-
-      const updatedBowlingPlayers = bowlingPlayers.filter(
-        (player) =>
-          player.value !== bowlerMatchPlayerId &&
-          (bowlerOvers.get(player.value) ?? 0) < maxBowlerOvers,
-      );
-
-      const updatedBowlingPlayersWithPercentage =
-        generateBowlingPlayerPercentage(updatedBowlingPlayers);
-
-      bowlerMatchPlayerId = getRandomByPercentage(
-        updatedBowlingPlayersWithPercentage,
-      );
-    }
-
-    let overBall = 1;
-    while (overBall <= 6) {
-      const ball = getValidBall(i, overBall);
-
       balls.push(ball);
-      inningsRuns += ball.totalRuns;
-
-      if (
-        matchInning.inningsNo === MatchInningNo.SECOND &&
-        matchInning.target! <= inningsRuns
-      ) {
-        break overLoop;
-      }
 
       newId++;
-      if (ball.isLegalDelivery) {
-        overBall++;
-      }
       deliveryNo++;
 
-      if (ball.isWicket && ball.dismissalType !== "RUN_OUT") {
-        if (strikerMatchPlayerId > nonStrikerMatchPlayerId) {
-          strikerMatchPlayerId++;
-        } else {
-          strikerMatchPlayerId = nonStrikerMatchPlayerId + 1;
-        }
-      } else if (ball.dismissalType === "RUN_OUT") {
-        if (ball.runOutEnd === "STRIKER_END") {
-          if (
-            ball.dismissedMatchPlayerId === battingPlayers[strikerMatchPlayerId]
-          ) {
-            if (strikerMatchPlayerId > nonStrikerMatchPlayerId) {
-              strikerMatchPlayerId++;
-            } else {
-              strikerMatchPlayerId = nonStrikerMatchPlayerId + 1;
-            }
-          } else {
-            if (strikerMatchPlayerId > nonStrikerMatchPlayerId) {
-              nonStrikerMatchPlayerId = strikerMatchPlayerId;
-              strikerMatchPlayerId++;
-            } else {
-              const temp = strikerMatchPlayerId;
-              strikerMatchPlayerId = nonStrikerMatchPlayerId + 1;
-              nonStrikerMatchPlayerId = temp;
-            }
-          }
-        } else {
-          if (
-            ball.dismissedMatchPlayerId ===
-            battingPlayers[nonStrikerMatchPlayerId]
-          ) {
-            if (strikerMatchPlayerId > nonStrikerMatchPlayerId) {
-              nonStrikerMatchPlayerId = strikerMatchPlayerId + 1;
-            } else {
-              nonStrikerMatchPlayerId++;
-            }
-          } else {
-            if (strikerMatchPlayerId > nonStrikerMatchPlayerId) {
-              const temp = strikerMatchPlayerId;
-              strikerMatchPlayerId = nonStrikerMatchPlayerId;
-              nonStrikerMatchPlayerId = temp + 1;
-            } else {
-              strikerMatchPlayerId = nonStrikerMatchPlayerId;
-              nonStrikerMatchPlayerId++;
-            }
-          }
-        }
+      if (ball.isLegalDelivery) {
+        legalBallNo++;
       }
 
-      if (
-        strikerMatchPlayerId >= battingPlayers.length ||
-        nonStrikerMatchPlayerId >= battingPlayers.length
-      ) {
+      // No-ball always creates a Free hit.
+      // A Wide during a Free hit keeps the Free hit active.
+      currentBallIsFreeHit = ball.isNoBall || (ball.isFreeHit && ball.isWide);
+
+      inningRuns += ball.totalRuns;
+
+      // Stop the chase once the target is reached.
+      if (matchInning.target !== null && inningRuns >= matchInning.target) {
         break overLoop;
       }
 
-      if (
-        !ball.isWicket &&
-        ball.isWide &&
-        ball.wideRuns < 5 &&
-        ball.wideRuns % 2 === 0
-      ) {
+      // Runs that affect which physical ends the batters occupy.
+      // The automatic Wide penalty does not change ends.
+      const runningRuns =
+        ball.batterRuns +
+        ball.byeRuns +
+        ball.legByeRuns +
+        (ball.isWide ? ball.wideRuns - 1 : 0);
+
+      if (ball.isWicket) {
+        const dismissedPlayerId = ball.dismissedMatchPlayerId;
+
+        if (!dismissedPlayerId) {
+          throw new Error(
+            "Wicket delivery must contain dismissedMatchPlayerId.",
+          );
+        }
+
+        let survivorIndex: number;
+
+        if (dismissedPlayerId === strikerIdBeforeBall) {
+          survivorIndex = nonStrikerIndex;
+        } else if (dismissedPlayerId === nonStrikerIdBeforeBall) {
+          survivorIndex = strikerIndex;
+        } else {
+          throw new Error(
+            "Dismissed player is not one of the current batters.",
+          );
+        }
+
+        let dismissedEnd: PitchEnd;
+
+        if (ball.dismissalType === "RUN_OUT") {
+          if (!ball.runOutEnd) {
+            throw new Error("Run-out delivery must contain runOutEnd.");
+          }
+
+          dismissedEnd = ball.runOutEnd;
+        } else {
+          const changedEnds = runningRuns % 2 !== 0;
+
+          const playerAtStrikerEnd = changedEnds
+            ? nonStrikerIdBeforeBall
+            : strikerIdBeforeBall;
+
+          dismissedEnd =
+            dismissedPlayerId === playerAtStrikerEnd
+              ? "STRIKER_END"
+              : "BOWLER_END";
+        }
+
+        // No unused batter remains: innings is all out.
+        if (nextBatterIndex >= battingPlayers.length) {
+          break overLoop;
+        }
+
+        const incomingBatterIndex = nextBatterIndex;
+        nextBatterIndex++;
+
+        if (dismissedEnd === "STRIKER_END") {
+          strikerIndex = incomingBatterIndex;
+          nonStrikerIndex = survivorIndex;
+        } else {
+          strikerIndex = survivorIndex;
+          nonStrikerIndex = incomingBatterIndex;
+        }
+      } else if (runningRuns % 2 !== 0) {
         swapStrike();
       }
-
-      if (
-        !ball.isWicket &&
-        ball.isBye &&
-        ball.byeRuns < 4 &&
-        ball.byeRuns % 2 === 1
-      ) {
-        swapStrike();
-      }
-
-      if (
-        !ball.isWicket &&
-        ball.isLegBye &&
-        ball.legByeRuns < 4 &&
-        ball.legByeRuns % 2 === 1
-      ) {
-        swapStrike();
-      }
-
-      if (!ball.isWicket && ball.batterRuns < 4 && ball.batterRuns % 2 === 1) {
-        swapStrike();
-      }
-
-      isLastBallNoBall = ball.isNoBall;
     }
-
-    bowlerOvers.set(
-      bowlerMatchPlayerId,
-      (bowlerOvers.get(bowlerMatchPlayerId) ?? 0) + 1,
-    );
   }
 
   return balls;
 };
-
-const balls = generateBalls(
-  {
-    id: "401",
-    matchId: "201",
-    teamId: "101",
-    inningsNo: MatchInningNo.SECOND,
-    runs: 0,
-    wickets: 0,
-    balls: 0,
-    maxOvers: 10,
-    status: MatchInningStatus.COMPLETED,
-    target: 10,
-  },
-  ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
-  [
-    { value: "107", role: "ALL_ROUNDER" },
-    { value: "108", role: "ALL_ROUNDER" },
-    { value: "109", role: "BOWLER" },
-    { value: "110", role: "BOWLER" },
-    { value: "111", role: "BOWLER" },
-  ],
-  ["201", "202", "203", "204", "205", "206", "207", "208", "209", "210", "211"],
-  3,
-  1001,
-);
-
-console.log(balls);
