@@ -4,6 +4,7 @@ import {
   matchDetailsBySlugSelect,
   matchListSelect,
   matchPlayersBySlugSelect,
+  type CompletedMatchResult,
   type MatchDetailsBySlug,
   type MatchDetailsBySlugQueryResult,
   type MatchInningSummary,
@@ -33,7 +34,7 @@ const generateTeamShortName = (teamName: string): string => {
   const words = normalizedTeamName.split(/\s+/);
 
   if (words.length === 1) {
-    return normalizedTeamName;
+    return normalizedTeamName.slice(0, 3).toUpperCase();
   }
 
   return words
@@ -67,6 +68,100 @@ const formatMatchTeamSummary = (
   };
 };
 
+const MAX_WICKETS_PER_INNINGS = 10;
+
+const pluralize = (
+  amount: number,
+  singular: string,
+  plural: string,
+): string => {
+  return amount === 1 ? singular : plural;
+};
+
+const getInningsTeams = (
+  homeTeam: MatchTeamSummary,
+  awayTeam: MatchTeamSummary,
+): {
+  firstInningsTeam: MatchTeamSummary;
+  secondInningsTeam: MatchTeamSummary;
+} | null => {
+  if (homeTeam.inningsNo === "FIRST" && awayTeam.inningsNo === "SECOND") {
+    return {
+      firstInningsTeam: homeTeam,
+      secondInningsTeam: awayTeam,
+    };
+  }
+
+  if (awayTeam.inningsNo === "FIRST" && homeTeam.inningsNo === "SECOND") {
+    return {
+      firstInningsTeam: awayTeam,
+      secondInningsTeam: homeTeam,
+    };
+  }
+
+  return null;
+};
+
+const generateCompletedMatchResult = (
+  status: MatchListQueryResult["status"],
+  homeTeam: MatchTeamSummary,
+  awayTeam: MatchTeamSummary,
+): CompletedMatchResult | null => {
+  if (status !== "COMPLETED") {
+    return null;
+  }
+
+  const inningsTeams = getInningsTeams(homeTeam, awayTeam);
+
+  if (!inningsTeams) {
+    return null;
+  }
+
+  const { firstInningsTeam, secondInningsTeam } = inningsTeams;
+
+  if (firstInningsTeam.runs === secondInningsTeam.runs) {
+    return {
+      type: "TIED",
+      winnerTeamId: null,
+      margin: null,
+      text: "Match tied",
+    };
+  }
+
+  if (secondInningsTeam.runs > firstInningsTeam.runs) {
+    const wicketsRemaining =
+      MAX_WICKETS_PER_INNINGS - secondInningsTeam.wickets;
+
+    if (wicketsRemaining <= 0) {
+      return null;
+    }
+
+    return {
+      type: "WICKETS",
+      winnerTeamId: secondInningsTeam.id,
+      margin: wicketsRemaining,
+      text: `${secondInningsTeam.teamName} won by ${wicketsRemaining} ${pluralize(
+        wicketsRemaining,
+        "wicket",
+        "wickets",
+      )}`,
+    };
+  }
+
+  const winningMargin = firstInningsTeam.runs - secondInningsTeam.runs;
+
+  return {
+    type: "RUNS",
+    winnerTeamId: firstInningsTeam.id,
+    margin: winningMargin,
+    text: `${firstInningsTeam.teamName} won by ${winningMargin} ${pluralize(
+      winningMargin,
+      "run",
+      "runs",
+    )}`,
+  };
+};
+
 const formatMatchListItem = (match: MatchListQueryResult): MatchListItem => {
   const homeTeamInning = match.innings.find(
     (inning) => inning.teamId === match.homeTeamId,
@@ -75,6 +170,10 @@ const formatMatchListItem = (match: MatchListQueryResult): MatchListItem => {
   const awayTeamInning = match.innings.find(
     (inning) => inning.teamId === match.awayTeamId,
   );
+
+  const homeTeam = formatMatchTeamSummary(match.homeTeam, homeTeamInning);
+
+  const awayTeam = formatMatchTeamSummary(match.awayTeam, awayTeamInning);
 
   return {
     id: match.id,
@@ -86,9 +185,10 @@ const formatMatchListItem = (match: MatchListQueryResult): MatchListItem => {
     tossWinnerTeamId: match.tossWinnerTeamId,
     tossDecision: match.tossDecision,
 
-    homeTeam: formatMatchTeamSummary(match.homeTeam, homeTeamInning),
+    homeTeam,
+    awayTeam,
 
-    awayTeam: formatMatchTeamSummary(match.awayTeam, awayTeamInning),
+    result: generateCompletedMatchResult(match.status, homeTeam, awayTeam),
   };
 };
 
