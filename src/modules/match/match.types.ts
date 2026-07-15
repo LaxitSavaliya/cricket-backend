@@ -80,12 +80,33 @@ export type MatchTeamSummary = MatchTeamDetails & {
   balls: number;
 };
 
+export type CompletedMatchResult =
+  | {
+      type: "RUNS";
+      winnerTeamId: string;
+      margin: number;
+      text: string;
+    }
+  | {
+      type: "WICKETS";
+      winnerTeamId: string;
+      margin: number;
+      text: string;
+    }
+  | {
+      type: "TIED";
+      winnerTeamId: null;
+      margin: null;
+      text: string;
+    };
+
 export type MatchListItem = Omit<
   MatchListQueryResult,
   "homeTeamId" | "awayTeamId" | "homeTeam" | "awayTeam" | "innings"
 > & {
   homeTeam: MatchTeamSummary;
   awayTeam: MatchTeamSummary;
+  result: CompletedMatchResult | null;
 };
 
 /*

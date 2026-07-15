@@ -3,6 +3,7 @@ import {
   DismissalType,
   MatchInningNo,
   MatchInningStatus,
+  MatchStatus,
   NoBallReason,
   PenaltyRunReason,
   PitchEnd,
@@ -540,6 +541,13 @@ export const getMatchDataForMatch = (
           `Match-player "${matchPlayer.id}" references unknown player "${matchPlayer.playerId}".`,
         );
       }
+    }
+
+    if (match.status !== MatchStatus.COMPLETED) {
+      for (const matchPlayer of matchPlayers) {
+        matchPlayersData.push(matchPlayer);
+      }
+      continue;
     }
 
     const firstInningsBattingTeamId = getFirstInningsBattingTeamId(match);
