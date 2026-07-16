@@ -203,9 +203,19 @@ model MatchPlayer {
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Restrict)
   player Player @relation(fields: [playerId], references: [id], onDelete: Restrict)
 
-  isPlaying     Boolean @default(false)
-  isCaptain     Boolean @default(false)
-  isViceCaptain Boolean @default(false)
+  isPlaying      Boolean @default(false)
+  isCaptain      Boolean @default(false)
+  isViceCaptain  Boolean @default(false)
+  isWicketKeeper Boolean @default(false)
+
+  // Planned batting lineup position.
+  // Playing XI: 1–11.
+  // Bench players: null.
+  lineupOrder Int?
+
+  // Actual batting appearance position.
+  // Null until the player enters the innings.
+  battingOrder Int?
 
   // =========================
   // Batting
@@ -286,6 +296,8 @@ model MatchPlayer {
   @@index([playerId])
   @@index([matchId, teamId])
   @@index([matchId, teamId, isPlaying])
+  @@index([matchId, teamId, lineupOrder])
+  @@index([matchId, teamId, battingOrder])
   @@map("match_players")
 }
 
@@ -386,6 +398,8 @@ model Ball {
 
   fielderMatchPlayer       MatchPlayer? @relation("BallFielder", fields: [fielderMatchPlayerId], references: [id], onDelete: Restrict)
   assistFielderMatchPlayer MatchPlayer? @relation("BallAssistFielder", fields: [assistFielderMatchPlayerId], references: [id], onDelete: Restrict)
+
+  commentaryText String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

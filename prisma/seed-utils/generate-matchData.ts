@@ -67,6 +67,7 @@ export type ballType = {
   dismissedMatchPlayerId: string | null;
   fielderMatchPlayerId: string | null;
   assistFielderMatchPlayerId: string | null;
+  commentaryText: string;
 };
 
 type BowlingRole = "BOWLER" | "ALL_ROUNDER";
@@ -202,38 +203,6 @@ const calculateConsecutiveWicketMilestones = (
   return milestones;
 };
 
-const normalizeWinningDelivery = (
-  balls: readonly ballType[],
-  target: number | null,
-): ballType[] => {
-  if (target === null) {
-    return [...balls];
-  }
-
-  let cumulativeRuns = 0;
-
-  return balls.map((ball) => {
-    cumulativeRuns += ball.totalRuns;
-
-    if (cumulativeRuns < target || !ball.isWicket) {
-      return ball;
-    }
-
-    // When the winning run or mandatory No-ball/Wide penalty has already
-    // completed the chase, the match is over before a later dismissal on
-    // the same delivery can take effect.
-    return {
-      ...ball,
-      isWicket: false,
-      dismissalType: null,
-      runOutEnd: null,
-      dismissedMatchPlayerId: null,
-      fielderMatchPlayerId: null,
-      assistFielderMatchPlayerId: null,
-    };
-  });
-};
-
 const assertPositiveInteger = (value: number, fieldName: string): void => {
   if (!Number.isInteger(value) || value <= 0) {
     throw new Error(`${fieldName} must be a positive integer.`);
@@ -285,20 +254,132 @@ const getFirstInningsBattingTeamId = (match: matchType): string => {
     );
   }
 
+  if (!match.tossDecision) {
+    throw new Error(`Match "${match.id}" must contain a toss decision.`);
+  }
+
   return match.tossDecision === TossDecision.BAT
     ? match.tossWinnerTeamId
     : getOppositionTeamId(match, match.tossWinnerTeamId);
 };
 
+const getSelectedWicketKeeper = (
+  playingPlayers: readonly matchPlayerType[],
+  playerById: ReadonlyMap<string, (typeof players)[number]>,
+  matchId: string,
+  teamId: string,
+): matchPlayerType => {
+  const selectedWicketKeepers = playingPlayers.filter(
+    (matchPlayer) => matchPlayer.isWicketKeeper,
+  );
+
+  if (selectedWicketKeepers.length !== 1) {
+    throw new Error(
+      `Team "${teamId}" in match "${matchId}" must have exactly one selected wicketkeeper. Found ${selectedWicketKeepers.length}.`,
+    );
+  }
+
+  const wicketKeeper = selectedWicketKeepers[0];
+
+  if (!wicketKeeper) {
+    throw new Error(
+      `Selected wicketkeeper could not be resolved for team "${teamId}" in match "${matchId}".`,
+    );
+  }
+
+  const player = playerById.get(wicketKeeper.playerId);
+
+  if (!player) {
+    throw new Error(
+      `Wicketkeeper "${wicketKeeper.id}" references unknown player "${wicketKeeper.playerId}".`,
+    );
+  }
+
+  if (!player.canKeepWickets) {
+    throw new Error(
+      `Match-player "${wicketKeeper.id}" is selected as wicketkeeper, but player "${player.id}" cannot keep wickets.`,
+    );
+  }
+
+  return wicketKeeper;
+};
+
+const getPlayingPlayersByLineupOrder = (
+  matchPlayers: readonly matchPlayerType[],
+  matchId: string,
+  teamId: string,
+): matchPlayerType[] => {
+  const teamPlayers = matchPlayers.filter(
+    (matchPlayer) => matchPlayer.teamId === teamId,
+  );
+
+  const invalidBenchPlayer = teamPlayers.find(
+    (matchPlayer) =>
+      !matchPlayer.isPlaying &&
+      (matchPlayer.lineupOrder !== null ||
+        matchPlayer.battingOrder !== null ||
+        matchPlayer.isWicketKeeper),
+  );
+
+  if (invalidBenchPlayer) {
+    throw new Error(
+      `Bench match-player "${invalidBenchPlayer.id}" cannot have lineupOrder, battingOrder, or wicketkeeper assignment.`,
+    );
+  }
+
+  const playingPlayers = teamPlayers.filter(
+    (matchPlayer) => matchPlayer.isPlaying,
+  );
+
+  for (const matchPlayer of playingPlayers) {
+    if (
+      matchPlayer.lineupOrder === null ||
+      !Number.isInteger(matchPlayer.lineupOrder) ||
+      matchPlayer.lineupOrder <= 0
+    ) {
+      throw new Error(
+        `Playing match-player "${matchPlayer.id}" in match "${matchId}" must have a positive lineup order.`,
+      );
+    }
+  }
+
+  const sortedPlayers = [...playingPlayers].sort(
+    (firstPlayer, secondPlayer) =>
+      (firstPlayer.lineupOrder ?? Number.MAX_SAFE_INTEGER) -
+      (secondPlayer.lineupOrder ?? Number.MAX_SAFE_INTEGER),
+  );
+
+  for (const [index, matchPlayer] of sortedPlayers.entries()) {
+    const expectedOrder = index + 1;
+
+    if (matchPlayer.lineupOrder !== expectedOrder) {
+      throw new Error(
+        `Team "${teamId}" in match "${matchId}" must have continuous lineup orders from 1 to ${playingPlayers.length}. Expected ${expectedOrder}, received ${matchPlayer.lineupOrder}.`,
+      );
+    }
+  }
+
+  return sortedPlayers;
+};
+
 const buildPlayingPlayerStats = (
   playingPlayer: matchPlayerType,
   currentMatchBalls: readonly ballType[],
+  battingOrder: number | null,
 ): matchPlayerType => {
   const playerAtCreaseBalls = currentMatchBalls.filter(
     (ball) =>
       ball.strikerMatchPlayerId === playingPlayer.id ||
       ball.nonStrikerMatchPlayerId === playingPlayer.id,
   );
+
+  const didBat = playerAtCreaseBalls.length > 0;
+
+  if (didBat && battingOrder === null) {
+    throw new Error(
+      `Batting order could not be resolved for match-player "${playingPlayer.id}".`,
+    );
+  }
 
   const playerOnStrikeBalls = currentMatchBalls.filter(
     (ball) => ball.strikerMatchPlayerId === playingPlayer.id,
@@ -417,7 +498,8 @@ const buildPlayingPlayerStats = (
 
   return {
     ...playingPlayer,
-    didBat: playerAtCreaseBalls.length > 0,
+    didBat,
+    battingOrder: didBat ? battingOrder : null,
     runsScored,
     ballsFaced,
     battingDotBalls,
@@ -450,6 +532,61 @@ const buildPlayingPlayerStats = (
     runOuts,
     runOutAssists,
   };
+};
+
+const buildBattingOrderByMatchPlayerId = (
+  battingMatchPlayers: readonly matchPlayerType[],
+  inningBalls: readonly ballType[],
+): Map<string, number> => {
+  const firstAppearanceDeliveryByPlayerId = new Map<string, number>();
+
+  const sortedBalls = [...inningBalls].sort(
+    (firstBall, secondBall) => firstBall.deliveryNo - secondBall.deliveryNo,
+  );
+
+  const registerAppearance = (
+    matchPlayerId: string,
+    deliveryNo: number,
+  ): void => {
+    if (!firstAppearanceDeliveryByPlayerId.has(matchPlayerId)) {
+      firstAppearanceDeliveryByPlayerId.set(matchPlayerId, deliveryNo);
+    }
+  };
+
+  for (const ball of sortedBalls) {
+    registerAppearance(ball.strikerMatchPlayerId, ball.deliveryNo);
+
+    registerAppearance(ball.nonStrikerMatchPlayerId, ball.deliveryNo);
+  }
+
+  const appearedPlayers = battingMatchPlayers
+    .filter((matchPlayer) =>
+      firstAppearanceDeliveryByPlayerId.has(matchPlayer.id),
+    )
+    .sort((firstPlayer, secondPlayer) => {
+      const firstDelivery =
+        firstAppearanceDeliveryByPlayerId.get(firstPlayer.id) ??
+        Number.MAX_SAFE_INTEGER;
+
+      const secondDelivery =
+        firstAppearanceDeliveryByPlayerId.get(secondPlayer.id) ??
+        Number.MAX_SAFE_INTEGER;
+
+      if (firstDelivery !== secondDelivery) {
+        return firstDelivery - secondDelivery;
+      }
+
+      // Both opening batters first appear on delivery 1.
+      // Use lineup order to decide positions 1 and 2.
+      return (
+        (firstPlayer.lineupOrder ?? Number.MAX_SAFE_INTEGER) -
+        (secondPlayer.lineupOrder ?? Number.MAX_SAFE_INTEGER)
+      );
+    });
+
+  return new Map(
+    appearedPlayers.map((matchPlayer, index) => [matchPlayer.id, index + 1]),
+  );
 };
 
 export const getMatchDataForMatch = (
@@ -543,10 +680,67 @@ export const getMatchDataForMatch = (
       }
     }
 
+    const homeTeamPlayingPlayers = getPlayingPlayersByLineupOrder(
+      matchPlayers,
+      match.id,
+      match.homeTeamId,
+    );
+
+    const awayTeamPlayingPlayers = getPlayingPlayersByLineupOrder(
+      matchPlayers,
+      match.id,
+      match.awayTeamId,
+    );
+
+    if (expectedPlayingPlayersPerTeam !== null) {
+      if (homeTeamPlayingPlayers.length !== expectedPlayingPlayersPerTeam) {
+        throw new Error(
+          `Home team "${match.homeTeamId}" in match "${match.id}" must have exactly ${expectedPlayingPlayersPerTeam} playing players.`,
+        );
+      }
+
+      if (awayTeamPlayingPlayers.length !== expectedPlayingPlayersPerTeam) {
+        throw new Error(
+          `Away team "${match.awayTeamId}" in match "${match.id}" must have exactly ${expectedPlayingPlayersPerTeam} playing players.`,
+        );
+      }
+    } else if (
+      homeTeamPlayingPlayers.length < 2 ||
+      awayTeamPlayingPlayers.length < 2
+    ) {
+      throw new Error(
+        `Both teams in match "${match.id}" must have at least two playing players.`,
+      );
+    }
+
+    const homeWicketKeeper = getSelectedWicketKeeper(
+      homeTeamPlayingPlayers,
+      playerById,
+      match.id,
+      match.homeTeamId,
+    );
+
+    const awayWicketKeeper = getSelectedWicketKeeper(
+      awayTeamPlayingPlayers,
+      playerById,
+      match.id,
+      match.awayTeamId,
+    );
+
+    const wicketKeeperMatchPlayerIds = new Set([
+      homeWicketKeeper.id,
+      awayWicketKeeper.id,
+    ]);
+
     if (match.status !== MatchStatus.COMPLETED) {
       for (const matchPlayer of matchPlayers) {
-        matchPlayersData.push(matchPlayer);
+        matchPlayersData.push({
+          ...matchPlayer,
+          battingOrder: null,
+          isWicketKeeper: wicketKeeperMatchPlayerIds.has(matchPlayer.id),
+        });
       }
+
       continue;
     }
 
@@ -562,52 +756,26 @@ export const getMatchDataForMatch = (
     ] as const;
 
     let firstInningsRuns: number | null = null;
-    const currentMatchInningIds = new Set<string>();
+    const currentMatchBalls: ballType[] = [];
+    const currentMatchBattingOrderByPlayerId = new Map<string, number>();
 
     for (const [inningIndex, battingTeamId] of inningsBattingTeams.entries()) {
       const fieldingTeamId = getOppositionTeamId(match, battingTeamId);
 
-      const battingMatchPlayers = matchPlayers.filter(
-        (matchPlayer) =>
-          matchPlayer.isPlaying && matchPlayer.teamId === battingTeamId,
-      );
+      const battingMatchPlayers =
+        battingTeamId === match.homeTeamId
+          ? homeTeamPlayingPlayers
+          : awayTeamPlayingPlayers;
 
-      const fieldingMatchPlayers = matchPlayers.filter(
-        (matchPlayer) =>
-          matchPlayer.isPlaying && matchPlayer.teamId === fieldingTeamId,
-      );
+      const fieldingMatchPlayers =
+        fieldingTeamId === match.homeTeamId
+          ? homeTeamPlayingPlayers
+          : awayTeamPlayingPlayers;
 
-      if (expectedPlayingPlayersPerTeam !== null) {
-        if (battingMatchPlayers.length !== expectedPlayingPlayersPerTeam) {
-          throw new Error(
-            `Batting team "${battingTeamId}" in match "${match.id}" must have exactly ${expectedPlayingPlayersPerTeam} playing players.`,
-          );
-        }
-
-        if (fieldingMatchPlayers.length !== expectedPlayingPlayersPerTeam) {
-          throw new Error(
-            `Fielding team "${fieldingTeamId}" in match "${match.id}" must have exactly ${expectedPlayingPlayersPerTeam} playing players.`,
-          );
-        }
-      } else if (
-        battingMatchPlayers.length < 2 ||
-        fieldingMatchPlayers.length < 2
-      ) {
-        throw new Error(
-          `Both teams in match "${match.id}" must have at least two playing players.`,
-        );
-      }
-
-      const wicketKeeperMatchPlayer = fieldingMatchPlayers.find(
-        (matchPlayer) =>
-          playerById.get(matchPlayer.playerId)?.canKeepWickets === true,
-      );
-
-      if (!wicketKeeperMatchPlayer) {
-        throw new Error(
-          `No playing wicketkeeper found for fielding team "${fieldingTeamId}" in match "${match.id}".`,
-        );
-      }
+      const wicketKeeperMatchPlayer =
+        fieldingTeamId === match.homeTeamId
+          ? homeWicketKeeper
+          : awayWicketKeeper;
 
       const bowlingPlayers: BowlingPlayer[] = fieldingMatchPlayers.flatMap(
         (matchPlayer) => {
@@ -683,7 +851,15 @@ export const getMatchDataForMatch = (
         random,
       );
 
-      const inningBalls = normalizeWinningDelivery(generatedBalls, target);
+      const inningBalls = generatedBalls;
+      const inningBattingOrders = buildBattingOrderByMatchPlayerId(
+        battingMatchPlayers,
+        inningBalls,
+      );
+
+      for (const [matchPlayerId, battingOrder] of inningBattingOrders) {
+        currentMatchBattingOrderByPlayerId.set(matchPlayerId, battingOrder);
+      }
 
       const totalRuns = inningBalls.reduce(
         (total, ball) => total + ball.totalRuns,
@@ -704,22 +880,34 @@ export const getMatchDataForMatch = (
       }
 
       matchInningsData.push(inning);
-      currentMatchInningIds.add(inning.id);
+      currentMatchBalls.push(...inningBalls);
       ballsData.push(...inningBalls);
 
       nextMatchInningId++;
       nextBallId += inningBalls.length;
     }
 
-    const currentMatchBalls = ballsData.filter((ball) =>
-      currentMatchInningIds.has(ball.inningId),
-    );
-
     for (const matchPlayer of matchPlayers) {
+      const battingOrder =
+        currentMatchBattingOrderByPlayerId.get(matchPlayer.id) ?? null;
+
+      const isWicketKeeper = wicketKeeperMatchPlayerIds.has(matchPlayer.id);
+
       matchPlayersData.push(
         matchPlayer.isPlaying
-          ? buildPlayingPlayerStats(matchPlayer, currentMatchBalls)
-          : matchPlayer,
+          ? {
+              ...buildPlayingPlayerStats(
+                matchPlayer,
+                currentMatchBalls,
+                battingOrder,
+              ),
+              isWicketKeeper,
+            }
+          : {
+              ...matchPlayer,
+              battingOrder: null,
+              isWicketKeeper: false,
+            },
       );
     }
   }

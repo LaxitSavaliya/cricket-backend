@@ -54,7 +54,7 @@ const matches: matchType[] = [
     slug: "india-vs-england-t10-3",
     matchFormat: MatchFormat.T10,
     status: MatchStatus.UPCOMING,
-    matchDate: new Date("2026-07-16T19:30:00+05:30"),
+    matchDate: new Date("2026-07-20T19:30:00+05:30"),
     venue: "Wankhede Stadium",
     city: "Mumbai",
     homeTeamId: "101",

@@ -4,7 +4,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import matches from "./seed-data/matches.js";
-import matchPlayers from "./seed-data/matchPlayers.js";
+import matchPlayers, {
+  type matchPlayerType,
+} from "./seed-data/matchPlayers.js";
 import { matchGenerationOptions } from "./seed-data/options.js";
 import players from "./seed-data/players.js";
 import teams from "./seed-data/teams.js";
@@ -112,6 +114,110 @@ const validateSourceSeedData = (): void => {
   );
 };
 
+const validateGeneratedPlayerOrders = (
+  generatedMatchPlayers: readonly matchPlayerType[],
+): void => {
+  const playersByMatchAndTeam = new Map<string, matchPlayerType[]>();
+
+  for (const matchPlayer of generatedMatchPlayers) {
+    const key = `${matchPlayer.matchId}:${matchPlayer.teamId}`;
+
+    const existingPlayers = playersByMatchAndTeam.get(key);
+
+    if (existingPlayers) {
+      existingPlayers.push(matchPlayer);
+    } else {
+      playersByMatchAndTeam.set(key, [matchPlayer]);
+    }
+  }
+
+  for (const [key, teamPlayers] of playersByMatchAndTeam) {
+    const invalidBenchPlayer = teamPlayers.find(
+      (matchPlayer) =>
+        !matchPlayer.isPlaying &&
+        (matchPlayer.lineupOrder !== null ||
+          matchPlayer.battingOrder !== null ||
+          matchPlayer.isWicketKeeper === true),
+    );
+
+    if (invalidBenchPlayer) {
+      throw new Error(
+        `Bench match-player "${invalidBenchPlayer.id}" cannot have lineupOrder, battingOrder, or wicketkeeper assignment.`,
+      );
+    }
+
+    const playingPlayers = teamPlayers.filter(
+      (matchPlayer) => matchPlayer.isPlaying,
+    );
+
+    const wicketKeepers = playingPlayers.filter(
+      (matchPlayer) => matchPlayer.isWicketKeeper === true,
+    );
+
+    if (wicketKeepers.length !== 1) {
+      throw new Error(
+        `Team "${key}" must have exactly one playing wicketkeeper. Found ${wicketKeepers.length}.`,
+      );
+    }
+
+    const lineupOrders = playingPlayers.map((matchPlayer) => {
+      if (matchPlayer.lineupOrder === null) {
+        throw new Error(
+          `Playing match-player "${matchPlayer.id}" in "${key}" has no lineupOrder.`,
+        );
+      }
+
+      return matchPlayer.lineupOrder;
+    });
+
+    if (new Set(lineupOrders).size !== lineupOrders.length) {
+      throw new Error(`Duplicate lineupOrder values found for "${key}".`);
+    }
+
+    const battingPlayers = playingPlayers.filter(
+      (matchPlayer) => matchPlayer.didBat,
+    );
+
+    const battingOrders = battingPlayers.map((matchPlayer) => {
+      if (matchPlayer.battingOrder === null) {
+        throw new Error(
+          `Match-player "${matchPlayer.id}" batted but has no battingOrder.`,
+        );
+      }
+
+      return matchPlayer.battingOrder;
+    });
+
+    if (new Set(battingOrders).size !== battingOrders.length) {
+      throw new Error(`Duplicate battingOrder values found for "${key}".`);
+    }
+
+    const sortedBattingOrders = [...battingOrders].sort(
+      (firstOrder, secondOrder) => firstOrder - secondOrder,
+    );
+
+    for (const [index, battingOrder] of sortedBattingOrders.entries()) {
+      const expectedOrder = index + 1;
+
+      if (battingOrder !== expectedOrder) {
+        throw new Error(
+          `Batting orders for "${key}" must be continuous from 1 to ${battingPlayers.length}. Expected ${expectedOrder}, received ${battingOrder}.`,
+        );
+      }
+    }
+
+    const invalidNonBatter = playingPlayers.find(
+      (matchPlayer) => !matchPlayer.didBat && matchPlayer.battingOrder !== null,
+    );
+
+    if (invalidNonBatter) {
+      throw new Error(
+        `Match-player "${invalidNonBatter.id}" did not bat but has battingOrder ${invalidNonBatter.battingOrder}.`,
+      );
+    }
+  }
+};
+
 const seedDatabase = async (): Promise<void> => {
   assertNotProduction();
   validateSourceSeedData();
@@ -124,6 +230,8 @@ const seedDatabase = async (): Promise<void> => {
    */
   const { matchPlayersData, matchInningsData, ballsData } =
     getMatchDataForMatch(matches, matchPlayers, matchGenerationOptions);
+
+  validateGeneratedPlayerOrders(matchPlayersData);
 
   assertUniqueStrings(
     matchPlayersData.map((matchPlayer) => matchPlayer.id),
