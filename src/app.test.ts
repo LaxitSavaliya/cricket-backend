@@ -184,6 +184,98 @@ const matchPlayersQueryResult = {
   ],
 };
 
+const matchScoreQueryResult = {
+  players: [
+    {
+      id: "match-player-home-1",
+      teamId: homeTeamId,
+      isPlaying: true,
+      didBat: true,
+      runsScored: 45,
+      ballsFaced: 30,
+      fours: 4,
+      sixes: 2,
+      isOut: true,
+      dismissalType: "BOWLED",
+      didBowl: false,
+      legalBallsBowled: 0,
+      maidens: 0,
+      runsConceded: 0,
+      wickets: 0,
+      player: {
+        playerName: "Rohit Sharma",
+        slug: "rohit-sharma",
+      },
+    },
+    {
+      id: "match-player-away-1",
+      teamId: awayTeamId,
+      isPlaying: true,
+      didBat: false,
+      runsScored: 0,
+      ballsFaced: 0,
+      fours: 0,
+      sixes: 0,
+      isOut: false,
+      dismissalType: null,
+      didBowl: true,
+      legalBallsBowled: 24,
+      maidens: 0,
+      runsConceded: 25,
+      wickets: 2,
+      player: {
+        playerName: "MS Dhoni",
+        slug: "ms-dhoni",
+      },
+    },
+  ],
+  innings: [
+    {
+      id: "inning-1",
+      teamId: homeTeamId,
+      inningsNo: "FIRST",
+      runs: 186,
+      wickets: 5,
+      balls: 120,
+      team: homeTeam,
+      ballsData: [
+        {
+          deliveryNo: 1,
+          overNo: 0,
+          ballNo: 1,
+          strikerMatchPlayerId: "match-player-home-1",
+          nonStrikerMatchPlayerId: "match-player-home-2",
+          bowlerMatchPlayerId: "match-player-away-1",
+          isLegalDelivery: true,
+          isDeadBall: false,
+          isWide: false,
+          isNoBall: false,
+          isWicket: false,
+          batterRuns: 4,
+          noBallRuns: 0,
+          wideRuns: 0,
+          byeRuns: 0,
+          legByeRuns: 0,
+          penaltyRuns: 0,
+          totalRuns: 4,
+          dismissalType: null,
+          dismissedMatchPlayerId: null,
+          fielderMatchPlayerId: null,
+          assistFielderMatchPlayerId: null,
+          bowlerMatchPlayer: {
+            player: {
+              playerName: "MS Dhoni",
+              slug: "ms-dhoni",
+            },
+          },
+          fielderMatchPlayer: null,
+          assistFielderMatchPlayer: null,
+        },
+      ],
+    },
+  ],
+};
+
 /*
 |--------------------------------------------------------------------------
 | Setup
@@ -247,6 +339,12 @@ describe("GET /api/v1/matches", () => {
           matchDate: "2026-07-09T00:00:00.000Z",
           tossWinnerTeamId: homeTeamId,
           tossDecision: "BAT",
+          result: {
+            type: "RUNS",
+            winnerTeamId: homeTeamId,
+            margin: 8,
+            text: "Mumbai Indians won by 8 runs",
+          },
 
           homeTeam: {
             id: homeTeamId,
@@ -593,8 +691,8 @@ describe("GET /api/v1/matches/:slug/players", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.body.data.homeTeam.shortName).toBe("India");
-    expect(response.body.data.awayTeam.shortName).toBe("England");
+    expect(response.body.data.homeTeam.shortName).toBe("IND");
+    expect(response.body.data.awayTeam.shortName).toBe("ENG");
   });
 
   it("falls back to playerName when displayName is null or blank", async () => {
@@ -654,6 +752,40 @@ describe("GET /api/v1/matches/:slug/players", () => {
     expect(player).not.toHaveProperty("isPlaying");
     expect(player).not.toHaveProperty("createdAt");
     expect(player).not.toHaveProperty("updatedAt");
+  });
+});
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/v1/matches/:slug/score
+|--------------------------------------------------------------------------
+*/
+
+describe("GET /api/v1/matches/:slug/score", () => {
+  it("returns match score details for a valid slug", async () => {
+    findUniqueMock.mockResolvedValueOnce(matchScoreQueryResult);
+
+    const response = await request(app).get(
+      `/api/v1/matches/${matchSlug}/score`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("Match score fetched successfully.");
+    expect(response.body.data.firstInning).not.toBeNull();
+    expect(response.body.data.secondInning).toBeNull();
+  });
+
+  it("returns 404 when the match does not exist", async () => {
+    findUniqueMock.mockResolvedValueOnce(null);
+
+    const response = await request(app).get(
+      "/api/v1/matches/unknown-match/score",
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe("Match not found.");
   });
 });
 

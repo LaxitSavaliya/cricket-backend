@@ -11,6 +11,7 @@ const matchPlayerProfileSelect = {
   id: true,
   playerName: true,
   displayName: true,
+  slug: true,
   role: true,
   photoUrl: true,
 } satisfies Prisma.PlayerSelect;
@@ -169,6 +170,8 @@ export const matchPlayersBySlugSelect = {
       isPlaying: true,
       isCaptain: true,
       isViceCaptain: true,
+      isWicketKeeper: true,
+      lineupOrder: true,
 
       player: {
         select: matchPlayerProfileSelect,
@@ -177,13 +180,13 @@ export const matchPlayersBySlugSelect = {
 
     orderBy: [
       {
+        teamId: "asc",
+      },
+      {
         isPlaying: "desc",
       },
       {
-        isCaptain: "desc",
-      },
-      {
-        isViceCaptain: "desc",
+        lineupOrder: "asc",
       },
       {
         player: {
@@ -205,10 +208,14 @@ export type MatchPlayerItem = {
   id: MatchPlayerQueryResult["player"]["id"];
   playerName: MatchPlayerQueryResult["player"]["playerName"];
   displayName: string;
+  slug: MatchPlayerQueryResult["player"]["slug"];
   role: MatchPlayerQueryResult["player"]["role"];
   photoUrl: MatchPlayerQueryResult["player"]["photoUrl"];
+
   isCaptain: boolean;
   isViceCaptain: boolean;
+  isWicketKeeper: boolean;
+  lineupOrder: number | null;
 };
 
 export type MatchPlayersTeam = MatchTeamDetails & {
@@ -219,4 +226,263 @@ export type MatchPlayersTeam = MatchTeamDetails & {
 export type MatchPlayersResponse = {
   homeTeam: MatchPlayersTeam;
   awayTeam: MatchPlayersTeam;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Match score
+|--------------------------------------------------------------------------
+*/
+
+const matchScorePlayerProfileSelect = {
+  playerName: true,
+  slug: true,
+} satisfies Prisma.PlayerSelect;
+
+export const matchScoreBySlugSelect = {
+  players: {
+    select: {
+      id: true,
+      teamId: true,
+      isPlaying: true,
+
+      lineupOrder: true,
+      battingOrder: true,
+
+      didBat: true,
+      runsScored: true,
+      ballsFaced: true,
+      fours: true,
+      sixes: true,
+      isOut: true,
+      dismissalType: true,
+
+      didBowl: true,
+      legalBallsBowled: true,
+      maidens: true,
+      runsConceded: true,
+      wickets: true,
+
+      player: {
+        select: matchScorePlayerProfileSelect,
+      },
+    },
+  },
+
+  innings: {
+    select: {
+      id: true,
+      teamId: true,
+      inningsNo: true,
+      runs: true,
+      wickets: true,
+      balls: true,
+
+      team: {
+        select: matchTeamSelect,
+      },
+
+      ballsData: {
+        select: {
+          deliveryNo: true,
+          overNo: true,
+          ballNo: true,
+
+          strikerMatchPlayerId: true,
+          nonStrikerMatchPlayerId: true,
+          bowlerMatchPlayerId: true,
+
+          isLegalDelivery: true,
+          isDeadBall: true,
+          isWide: true,
+          isNoBall: true,
+          isWicket: true,
+
+          batterRuns: true,
+          noBallRuns: true,
+          wideRuns: true,
+          byeRuns: true,
+          legByeRuns: true,
+          penaltyRuns: true,
+          totalRuns: true,
+
+          dismissalType: true,
+          dismissedMatchPlayerId: true,
+
+          fielderMatchPlayerId: true,
+          assistFielderMatchPlayerId: true,
+
+          bowlerMatchPlayer: {
+            select: {
+              player: {
+                select: matchScorePlayerProfileSelect,
+              },
+            },
+          },
+
+          fielderMatchPlayer: {
+            select: {
+              player: {
+                select: matchScorePlayerProfileSelect,
+              },
+            },
+          },
+
+          assistFielderMatchPlayer: {
+            select: {
+              player: {
+                select: matchScorePlayerProfileSelect,
+              },
+            },
+          },
+        },
+
+        orderBy: {
+          deliveryNo: "asc",
+        },
+      },
+    },
+
+    orderBy: {
+      inningsNo: "asc",
+    },
+  },
+} satisfies Prisma.MatchSelect;
+
+export type MatchScoreBySlugQueryResult = Prisma.MatchGetPayload<{
+  select: typeof matchScoreBySlugSelect;
+}>;
+
+export type MatchScoreInningQueryResult =
+  MatchScoreBySlugQueryResult["innings"][number];
+
+export type MatchScoreBallQueryResult =
+  MatchScoreInningQueryResult["ballsData"][number];
+
+export type MatchScorePlayerQueryResult =
+  MatchScoreBySlugQueryResult["players"][number];
+
+export type MatchScorePlayer = {
+  playerName: string;
+  slug: string;
+};
+
+export type MatchScoreBatter = MatchScorePlayer & {
+  runs: number;
+  balls: number;
+  fours: number;
+  sixes: number;
+  strikeRate: number;
+  isOut: boolean;
+  dismissalText: string;
+};
+
+export type MatchScoreExtras = {
+  byes: number;
+  legByes: number;
+  wides: number;
+  noBalls: number;
+  penalties: number;
+  total: number;
+};
+
+export type MatchScoreBowler = MatchScorePlayer & {
+  overs: number;
+  maidens: number;
+  runs: number;
+  wickets: number;
+  economyRate: number;
+};
+
+export type MatchScoreFallOfWicket = MatchScorePlayer & {
+  overs: number;
+  runs: number;
+  wicketNo: number;
+};
+
+export type MatchScorePartnershipBatter = MatchScorePlayer & {
+  runs: number;
+  balls: number;
+};
+
+export type MatchScorePartnership = {
+  forWicket: number;
+  runs: number;
+  balls: number;
+  firstBatter: MatchScorePartnershipBatter;
+  secondBatter: MatchScorePartnershipBatter;
+};
+
+export type MatchScoreInning = {
+  teamName: string;
+  shortName: string;
+  slug: string;
+  logoUrl: string | null;
+  runs: number;
+  overs: number;
+  wickets: number;
+
+  score: {
+    batters: MatchScoreBatter[];
+    extras: MatchScoreExtras;
+    notBat: MatchScorePlayer[];
+    bowlers: MatchScoreBowler[];
+    fallOfWickets: MatchScoreFallOfWicket[];
+    partnerships: MatchScorePartnership[];
+  };
+};
+
+export type MatchScoreResponse = {
+  firstInning: MatchScoreInning | null;
+  secondInning: MatchScoreInning | null;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Match commentary
+|--------------------------------------------------------------------------
+*/
+
+export const matchCommentaryBySlugSelect = {
+  innings: {
+    select: {
+      inningsNo: true,
+
+      ballsData: {
+        select: {
+          deliveryNo: true,
+          overNo: true,
+          ballNo: true,
+          commentaryText: true,
+        },
+
+        orderBy: {
+          deliveryNo: "desc",
+        },
+      },
+    },
+
+    orderBy: {
+      inningsNo: "asc",
+    },
+  },
+} satisfies Prisma.MatchSelect;
+
+export type MatchCommentaryBySlugQueryResult = Prisma.MatchGetPayload<{
+  select: typeof matchCommentaryBySlugSelect;
+}>;
+
+export type MatchCommentaryInningQueryResult =
+  MatchCommentaryBySlugQueryResult["innings"][number];
+
+export type MatchCommentaryItem =
+  MatchCommentaryInningQueryResult["ballsData"][number];
+
+export type MatchInningCommentary = {
+  commentary: MatchCommentaryItem[];
+};
+
+export type MatchCommentaryResponse = {
+  firstInning: MatchInningCommentary | null;
+  secondInning: MatchInningCommentary | null;
 };

@@ -1,4 +1,7 @@
 import { PitchEnd, PlayerRole } from "../../src/generated/prisma/enums.js";
+import generateBallCommentary, {
+  type BallBeforeCommentary,
+} from "./generate-ball-commentary.js";
 import generateBall, {
   getRandomByPercentage,
   type PercentageOption,
@@ -303,21 +306,61 @@ export const generateBalls = (
         throw new Error("Current batters could not be resolved.");
       }
 
+      const generatedBall = generateBall(
+        inningId,
+        deliveryNo,
+        overNo,
+        legalBallNo,
+        currentBallIsFreeHit,
+        strikerIdBeforeBall,
+        nonStrikerIdBeforeBall,
+        bowlerMatchPlayerId,
+        wicketKeeperMatchPlayerId,
+        fielders,
+        random,
+      );
+
+      /*
+       * A dismissal on the delivery that completes the chase may not take effect.
+       *
+       * Examples:
+       * - A Wide run completes the target before a later Run-out.
+       * - A No-ball penalty completes the target before a later dismissal.
+       * - Completed runs reach the target before a Run-out attempt.
+       */
+      const targetReachedOnThisBall =
+        matchInning.target !== null &&
+        inningRuns + generatedBall.totalRuns >= matchInning.target;
+
+      const finalBallWithoutCommentary: BallBeforeCommentary =
+        targetReachedOnThisBall && generatedBall.isWicket
+          ? {
+              ...generatedBall,
+              id: String(newId),
+
+              isWicket: false,
+              dismissalType: null,
+              runOutEnd: null,
+              dismissedMatchPlayerId: null,
+              fielderMatchPlayerId: null,
+              assistFielderMatchPlayerId: null,
+            }
+          : {
+              ...generatedBall,
+              id: String(newId),
+            };
+
+      const commentaryText = generateBallCommentary(finalBallWithoutCommentary);
+
+      if (!commentaryText.trim()) {
+        throw new Error(
+          `Commentary could not be generated for ball "${finalBallWithoutCommentary.id}".`,
+        );
+      }
+
       const ball: ballType = {
-        ...generateBall(
-          inningId,
-          deliveryNo,
-          overNo,
-          legalBallNo,
-          currentBallIsFreeHit,
-          strikerIdBeforeBall,
-          nonStrikerIdBeforeBall,
-          bowlerMatchPlayerId,
-          wicketKeeperMatchPlayerId,
-          fielders,
-          random,
-        ),
-        id: String(newId),
+        ...finalBallWithoutCommentary,
+        commentaryText,
       };
 
       balls.push(ball);
