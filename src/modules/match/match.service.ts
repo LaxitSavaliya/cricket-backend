@@ -8,6 +8,7 @@ import {
   matchPlayersBySlugSelect,
   matchScoreBySlugSelect,
   type CompletedMatchResult,
+  type MatchBowlerIntro,
   type MatchCommentaryBySlugQueryResult,
   type MatchCommentaryInningQueryResult,
   type MatchCommentaryResponse,
@@ -40,10 +41,70 @@ import {
   type MatchTeamSummary,
 } from "./match.types.js";
 
+type BowlerIntroWithPlayerId = MatchBowlerIntro & {
+  playerId: string;
+};
+
+const roundToTwoDecimals = (value: number): number => {
+  return Number(value.toFixed(2));
+};
+
+const calculateEconomyRate = (
+  runsConceded: number,
+  legalBallsBowled: number,
+): number => {
+  if (legalBallsBowled === 0) {
+    return 0;
+  }
+
+  return roundToTwoDecimals((runsConceded * 6) / legalBallsBowled);
+};
+
 const formatMatchCommentaryInning = (
   inning: MatchCommentaryInningQueryResult,
+  bowlerStatsMap: Map<
+    string,
+    {
+      match: number;
+      wicket: number;
+      average: number;
+      economy: number;
+      best: string;
+    }
+  >,
 ): MatchInningCommentary => {
+  const bowlerMap = new Map<string, BowlerIntroWithPlayerId>();
+
+  // ballsData is sorted by deliveryNo descending (latest first).
+  // Iterate in ascending order (chronological order) so we catch the bowler's first deliveryNo in the inning.
+  const chronologicalBalls = [...inning.ballsData].sort(
+    (a, b) => a.deliveryNo - b.deliveryNo,
+  );
+
+  for (const ball of chronologicalBalls) {
+    const bowlerMatchPlayer = ball.bowlerMatchPlayer;
+    const bowler = bowlerMatchPlayer.player;
+    if (!bowlerMap.has(bowler.slug)) {
+      const stats = bowlerStatsMap.get(bowlerMatchPlayer.playerId);
+      bowlerMap.set(bowler.slug, {
+        playerName: bowler.playerName,
+        slug: bowler.slug,
+        photoUrl: bowler.photoUrl,
+        deliveryNo: ball.deliveryNo,
+        match: stats?.match ?? 0,
+        wicket: stats?.wicket ?? 0,
+        average: stats?.average ?? 0,
+        economy: stats?.economy ?? 0,
+        best: stats?.best ?? "0/0",
+        playerId: bowlerMatchPlayer.playerId,
+      });
+    }
+  }
+
   return {
+    bowlerIntro: Array.from(bowlerMap.values()).map(
+      ({ playerId: _playerId, ...bowlerIntro }) => bowlerIntro,
+    ),
     commentary: inning.ballsData.map((ball) => {
       return {
         deliveryNo: ball.deliveryNo,
@@ -55,9 +116,9 @@ const formatMatchCommentaryInning = (
   };
 };
 
-const formatMatchCommentaryResponse = (
+const formatMatchCommentaryResponse = async (
   match: MatchCommentaryBySlugQueryResult,
-): MatchCommentaryResponse => {
+): Promise<MatchCommentaryResponse> => {
   const firstInning = match.innings.find(
     (inning) => inning.inningsNo === "FIRST",
   );
@@ -66,17 +127,122 @@ const formatMatchCommentaryResponse = (
     (inning) => inning.inningsNo === "SECOND",
   );
 
+  // Extract unique player IDs of all bowlers across both innings
+  const playerIdsSet = new Set<string>();
+  for (const inning of match.innings) {
+    for (const ball of inning.ballsData) {
+      playerIdsSet.add(ball.bowlerMatchPlayer.playerId);
+    }
+  }
+  const playerIds = Array.from(playerIdsSet);
+
+  const bowlerStatsMap = new Map<
+    string,
+    {
+      match: number;
+      wicket: number;
+      average: number;
+      economy: number;
+      best: string;
+    }
+  >();
+
+  if (playerIds.length > 0) {
+    const statsList = await Promise.all(
+      playerIds.map(async (playerId) => {
+        const whereClause: Prisma.MatchPlayerWhereInput = {
+          playerId,
+          isPlaying: true,
+          match: {
+            matchFormat: match.matchFormat,
+            matchDate: {
+              lt: match.matchDate,
+            },
+          },
+        };
+
+        const count = await prisma.matchPlayer.count({
+          where: whereClause,
+        });
+
+        const aggregateResult = await prisma.matchPlayer.aggregate({
+          where: whereClause,
+          _sum: {
+            wickets: true,
+            runsConceded: true,
+            legalBallsBowled: true,
+          },
+        });
+
+        const bestPerformance = await prisma.matchPlayer.findFirst({
+          where: {
+            ...whereClause,
+            didBowl: true,
+          },
+          orderBy: [{ wickets: "desc" }, { runsConceded: "asc" }],
+          select: {
+            wickets: true,
+            runsConceded: true,
+          },
+        });
+
+        const totalWickets = aggregateResult._sum.wickets ?? 0;
+        const totalRunsConceded = aggregateResult._sum.runsConceded ?? 0;
+        const totalLegalBallsBowled =
+          aggregateResult._sum.legalBallsBowled ?? 0;
+
+        const average =
+          totalWickets > 0
+            ? roundToTwoDecimals(totalRunsConceded / totalWickets)
+            : 0;
+
+        const economy = calculateEconomyRate(
+          totalRunsConceded,
+          totalLegalBallsBowled,
+        );
+
+        const best = bestPerformance
+          ? `${bestPerformance.wickets}/${bestPerformance.runsConceded}`
+          : "0/0";
+
+        return {
+          playerId,
+          count,
+          wicket: totalWickets,
+          average,
+          economy,
+          best,
+        };
+      }),
+    );
+
+    for (const {
+      playerId,
+      count,
+      wicket,
+      average,
+      economy,
+      best,
+    } of statsList) {
+      bowlerStatsMap.set(playerId, {
+        match: count,
+        wicket,
+        average,
+        economy,
+        best,
+      });
+    }
+  }
+
   return {
-    firstInning: firstInning ? formatMatchCommentaryInning(firstInning) : null,
+    firstInning: firstInning
+      ? formatMatchCommentaryInning(firstInning, bowlerStatsMap)
+      : null,
 
     secondInning: secondInning
-      ? formatMatchCommentaryInning(secondInning)
+      ? formatMatchCommentaryInning(secondInning, bowlerStatsMap)
       : null,
   };
-};
-
-const roundToTwoDecimals = (value: number): number => {
-  return Number(value.toFixed(2));
 };
 
 const formatOvers = (legalBalls: number): number => {
@@ -96,17 +262,6 @@ const calculateStrikeRate = (runs: number, balls: number): number => {
   }
 
   return roundToTwoDecimals((runs / balls) * 100);
-};
-
-const calculateEconomyRate = (
-  runsConceded: number,
-  legalBallsBowled: number,
-): number => {
-  if (legalBallsBowled === 0) {
-    return 0;
-  }
-
-  return roundToTwoDecimals((runsConceded * 6) / legalBallsBowled);
 };
 
 const formatScorePlayer = (
@@ -961,5 +1116,5 @@ export const getMatchCommentaryBySlug = async (
     matchCommentaryBySlugSelect,
   );
 
-  return match ? formatMatchCommentaryResponse(match) : null;
+  return match ? await formatMatchCommentaryResponse(match) : null;
 };

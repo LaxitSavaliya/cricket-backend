@@ -444,6 +444,10 @@ export type MatchScoreResponse = {
 */
 
 export const matchCommentaryBySlugSelect = {
+  id: true,
+  matchFormat: true,
+  matchDate: true,
+
   innings: {
     select: {
       inningsNo: true,
@@ -454,6 +458,18 @@ export const matchCommentaryBySlugSelect = {
           overNo: true,
           ballNo: true,
           commentaryText: true,
+          bowlerMatchPlayer: {
+            select: {
+              playerId: true,
+              player: {
+                select: {
+                  playerName: true,
+                  slug: true,
+                  photoUrl: true,
+                },
+              },
+            },
+          },
         },
 
         orderBy: {
@@ -475,10 +491,27 @@ export type MatchCommentaryBySlugQueryResult = Prisma.MatchGetPayload<{
 export type MatchCommentaryInningQueryResult =
   MatchCommentaryBySlugQueryResult["innings"][number];
 
-export type MatchCommentaryItem =
-  MatchCommentaryInningQueryResult["ballsData"][number];
+export type MatchCommentaryItem = {
+  deliveryNo: number;
+  overNo: number;
+  ballNo: number;
+  commentaryText: string;
+};
+
+export type MatchBowlerIntro = {
+  playerName: string;
+  slug: string;
+  photoUrl: string | null;
+  deliveryNo: number;
+  match: number;
+  wicket: number;
+  average: number;
+  economy: number;
+  best: string;
+};
 
 export type MatchInningCommentary = {
+  bowlerIntro: MatchBowlerIntro[];
   commentary: MatchCommentaryItem[];
 };
 
