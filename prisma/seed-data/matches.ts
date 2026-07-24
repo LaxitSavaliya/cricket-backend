@@ -19,6 +19,16 @@ export type matchType = {
   tossDecision: TossDecision | null;
 };
 
+const getTomorrowWithFixedTime = (
+  hours: number = 19,
+  minutes: number = 30,
+): Date => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(hours, minutes, 0, 0);
+  return tomorrow;
+};
+
 const matches: matchType[] = [
   {
     id: "201",
@@ -54,7 +64,7 @@ const matches: matchType[] = [
     slug: "india-vs-england-t10-3",
     matchFormat: MatchFormat.T10,
     status: MatchStatus.UPCOMING,
-    matchDate: new Date("2026-07-20T19:30:00+05:30"),
+    matchDate: getTomorrowWithFixedTime(19, 30),
     venue: "Wankhede Stadium",
     city: "Mumbai",
     homeTeamId: "101",

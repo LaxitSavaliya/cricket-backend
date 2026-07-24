@@ -458,6 +458,30 @@ export const matchCommentaryBySlugSelect = {
           overNo: true,
           ballNo: true,
           commentaryText: true,
+          strikerMatchPlayer: {
+            select: {
+              playerId: true,
+              player: {
+                select: {
+                  playerName: true,
+                  slug: true,
+                  photoUrl: true,
+                },
+              },
+            },
+          },
+          nonStrikerMatchPlayer: {
+            select: {
+              playerId: true,
+              player: {
+                select: {
+                  playerName: true,
+                  slug: true,
+                  photoUrl: true,
+                },
+              },
+            },
+          },
           bowlerMatchPlayer: {
             select: {
               playerId: true,
@@ -498,19 +522,32 @@ export type MatchCommentaryItem = {
   commentaryText: string;
 };
 
+export type MatchBatterIntro = {
+  playerName: string;
+  slug: string;
+  photoUrl: string | null;
+  deliveryNo: number;
+  matches: number;
+  runs: number;
+  strikeRate: number;
+  average: number;
+  best: string;
+};
+
 export type MatchBowlerIntro = {
   playerName: string;
   slug: string;
   photoUrl: string | null;
   deliveryNo: number;
-  match: number;
-  wicket: number;
+  matches: number;
+  wickets: number;
   average: number;
   economy: number;
   best: string;
 };
 
 export type MatchInningCommentary = {
+  batterIntro: MatchBatterIntro[];
   bowlerIntro: MatchBowlerIntro[];
   commentary: MatchCommentaryItem[];
 };

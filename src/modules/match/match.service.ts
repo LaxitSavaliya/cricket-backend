@@ -8,6 +8,7 @@ import {
   matchPlayersBySlugSelect,
   matchScoreBySlugSelect,
   type CompletedMatchResult,
+  type MatchBatterIntro,
   type MatchBowlerIntro,
   type MatchCommentaryBySlugQueryResult,
   type MatchCommentaryInningQueryResult,
@@ -41,6 +42,10 @@ import {
   type MatchTeamSummary,
 } from "./match.types.js";
 
+type BatterIntroWithPlayerId = MatchBatterIntro & {
+  playerId: string;
+};
+
 type BowlerIntroWithPlayerId = MatchBowlerIntro & {
   playerId: string;
 };
@@ -62,6 +67,16 @@ const calculateEconomyRate = (
 
 const formatMatchCommentaryInning = (
   inning: MatchCommentaryInningQueryResult,
+  batterStatsMap: Map<
+    string,
+    {
+      matches: number;
+      runs: number;
+      strikeRate: number;
+      average: number;
+      best: string;
+    }
+  >,
   bowlerStatsMap: Map<
     string,
     {
@@ -73,15 +88,59 @@ const formatMatchCommentaryInning = (
     }
   >,
 ): MatchInningCommentary => {
+  const batterMap = new Map<string, BatterIntroWithPlayerId>();
   const bowlerMap = new Map<string, BowlerIntroWithPlayerId>();
 
   // ballsData is sorted by deliveryNo descending (latest first).
-  // Iterate in ascending order (chronological order) so we catch the bowler's first deliveryNo in the inning.
+  // Iterate in ascending order (chronological order) so we catch the player's first deliveryNo in the inning.
   const chronologicalBalls = [...inning.ballsData].sort(
     (a, b) => a.deliveryNo - b.deliveryNo,
   );
 
   for (const ball of chronologicalBalls) {
+    // Check Striker
+    const strikerMatchPlayer = ball.strikerMatchPlayer;
+    if (strikerMatchPlayer) {
+      const striker = strikerMatchPlayer.player;
+      if (!batterMap.has(striker.slug)) {
+        const stats = batterStatsMap.get(strikerMatchPlayer.playerId);
+        batterMap.set(striker.slug, {
+          playerName: striker.playerName,
+          slug: striker.slug,
+          photoUrl: striker.photoUrl,
+          deliveryNo: ball.deliveryNo,
+          matches: stats?.matches ?? 0,
+          runs: stats?.runs ?? 0,
+          strikeRate: stats?.strikeRate ?? 0,
+          average: stats?.average ?? 0,
+          best: stats?.best ?? "0",
+          playerId: strikerMatchPlayer.playerId,
+        });
+      }
+    }
+
+    // Check Non-Striker
+    const nonStrikerMatchPlayer = ball.nonStrikerMatchPlayer;
+    if (nonStrikerMatchPlayer) {
+      const nonStriker = nonStrikerMatchPlayer.player;
+      if (!batterMap.has(nonStriker.slug)) {
+        const stats = batterStatsMap.get(nonStrikerMatchPlayer.playerId);
+        batterMap.set(nonStriker.slug, {
+          playerName: nonStriker.playerName,
+          slug: nonStriker.slug,
+          photoUrl: nonStriker.photoUrl,
+          deliveryNo: ball.deliveryNo,
+          matches: stats?.matches ?? 0,
+          runs: stats?.runs ?? 0,
+          strikeRate: stats?.strikeRate ?? 0,
+          average: stats?.average ?? 0,
+          best: stats?.best ?? "0",
+          playerId: nonStrikerMatchPlayer.playerId,
+        });
+      }
+    }
+
+    // Check Bowler
     const bowlerMatchPlayer = ball.bowlerMatchPlayer;
     const bowler = bowlerMatchPlayer.player;
     if (!bowlerMap.has(bowler.slug)) {
@@ -91,8 +150,8 @@ const formatMatchCommentaryInning = (
         slug: bowler.slug,
         photoUrl: bowler.photoUrl,
         deliveryNo: ball.deliveryNo,
-        match: stats?.match ?? 0,
-        wicket: stats?.wicket ?? 0,
+        matches: stats?.match ?? 0,
+        wickets: stats?.wicket ?? 0,
         average: stats?.average ?? 0,
         economy: stats?.economy ?? 0,
         best: stats?.best ?? "0/0",
@@ -102,6 +161,9 @@ const formatMatchCommentaryInning = (
   }
 
   return {
+    batterIntro: Array.from(batterMap.values()).map(
+      ({ playerId: _playerId, ...batterIntro }) => batterIntro,
+    ),
     bowlerIntro: Array.from(bowlerMap.values()).map(
       ({ playerId: _playerId, ...bowlerIntro }) => bowlerIntro,
     ),
@@ -127,14 +189,126 @@ const formatMatchCommentaryResponse = async (
     (inning) => inning.inningsNo === "SECOND",
   );
 
-  // Extract unique player IDs of all bowlers across both innings
-  const playerIdsSet = new Set<string>();
+  // Extract unique player IDs of all batters across both innings
+  const batterPlayerIdsSet = new Set<string>();
   for (const inning of match.innings) {
     for (const ball of inning.ballsData) {
-      playerIdsSet.add(ball.bowlerMatchPlayer.playerId);
+      if (ball.strikerMatchPlayer?.playerId) {
+        batterPlayerIdsSet.add(ball.strikerMatchPlayer.playerId);
+      }
+      if (ball.nonStrikerMatchPlayer?.playerId) {
+        batterPlayerIdsSet.add(ball.nonStrikerMatchPlayer.playerId);
+      }
     }
   }
-  const playerIds = Array.from(playerIdsSet);
+  const batterPlayerIds = Array.from(batterPlayerIdsSet);
+
+  const batterStatsMap = new Map<
+    string,
+    {
+      matches: number;
+      runs: number;
+      strikeRate: number;
+      average: number;
+      best: string;
+    }
+  >();
+
+  if (batterPlayerIds.length > 0) {
+    const statsList = await Promise.all(
+      batterPlayerIds.map(async (playerId) => {
+        const whereClause: Prisma.MatchPlayerWhereInput = {
+          playerId,
+          isPlaying: true,
+          match: {
+            matchFormat: match.matchFormat,
+            matchDate: {
+              lt: match.matchDate,
+            },
+          },
+        };
+
+        const count = await prisma.matchPlayer.count({
+          where: whereClause,
+        });
+
+        const aggregateResult = await prisma.matchPlayer.aggregate({
+          where: whereClause,
+          _sum: {
+            runsScored: true,
+            ballsFaced: true,
+          },
+        });
+
+        const timesOut = await prisma.matchPlayer.count({
+          where: {
+            ...whereClause,
+            didBat: true,
+            isOut: true,
+          },
+        });
+
+        const bestPerformance = await prisma.matchPlayer.findFirst({
+          where: {
+            ...whereClause,
+            didBat: true,
+          },
+          orderBy: [{ runsScored: "desc" }, { ballsFaced: "asc" }],
+          select: {
+            runsScored: true,
+            isOut: true,
+          },
+        });
+
+        const totalRuns = aggregateResult._sum.runsScored ?? 0;
+        const totalBalls = aggregateResult._sum.ballsFaced ?? 0;
+
+        const average =
+          timesOut > 0 ? roundToTwoDecimals(totalRuns / timesOut) : totalRuns;
+
+        const strikeRate = calculateStrikeRate(totalRuns, totalBalls);
+
+        const best = bestPerformance
+          ? `${bestPerformance.runsScored}${bestPerformance.isOut ? "" : "*"}`
+          : "0";
+
+        return {
+          playerId,
+          matches: count,
+          runs: totalRuns,
+          strikeRate,
+          average,
+          best,
+        };
+      }),
+    );
+
+    for (const {
+      playerId,
+      matches,
+      runs,
+      strikeRate,
+      average,
+      best,
+    } of statsList) {
+      batterStatsMap.set(playerId, {
+        matches,
+        runs,
+        strikeRate,
+        average,
+        best,
+      });
+    }
+  }
+
+  // Extract unique player IDs of all bowlers across both innings
+  const bowlerPlayerIdsSet = new Set<string>();
+  for (const inning of match.innings) {
+    for (const ball of inning.ballsData) {
+      bowlerPlayerIdsSet.add(ball.bowlerMatchPlayer.playerId);
+    }
+  }
+  const bowlerPlayerIds = Array.from(bowlerPlayerIdsSet);
 
   const bowlerStatsMap = new Map<
     string,
@@ -147,9 +321,9 @@ const formatMatchCommentaryResponse = async (
     }
   >();
 
-  if (playerIds.length > 0) {
+  if (bowlerPlayerIds.length > 0) {
     const statsList = await Promise.all(
-      playerIds.map(async (playerId) => {
+      bowlerPlayerIds.map(async (playerId) => {
         const whereClause: Prisma.MatchPlayerWhereInput = {
           playerId,
           isPlaying: true,
@@ -236,11 +410,15 @@ const formatMatchCommentaryResponse = async (
 
   return {
     firstInning: firstInning
-      ? formatMatchCommentaryInning(firstInning, bowlerStatsMap)
+      ? formatMatchCommentaryInning(firstInning, batterStatsMap, bowlerStatsMap)
       : null,
 
     secondInning: secondInning
-      ? formatMatchCommentaryInning(secondInning, bowlerStatsMap)
+      ? formatMatchCommentaryInning(
+          secondInning,
+          batterStatsMap,
+          bowlerStatsMap,
+        )
       : null,
   };
 };
