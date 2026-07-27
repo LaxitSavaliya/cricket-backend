@@ -297,10 +297,19 @@ const matchCommentaryQueryResult = {
       inningsNo: "FIRST",
       ballsData: [
         {
-          deliveryNo: 1,
+          deliveryNo: 6,
           overNo: 0,
-          ballNo: 1,
-          commentaryText: "Bumrah to Rohit, FOUR runs!",
+          ballNo: 6,
+          commentaryText: "Bumrah to Rohit, OUT!",
+          isWide: false,
+          isNoBall: false,
+          isWicket: true,
+          batterRuns: 0,
+          wideRuns: 0,
+          noBallRuns: 0,
+          byeRuns: 0,
+          legByeRuns: 0,
+          totalRuns: 0,
           strikerMatchPlayer: {
             playerId: "player-home-1",
             player: {
@@ -325,7 +334,55 @@ const matchCommentaryQueryResult = {
               photoUrl: "https://example.com/bumrah.png",
             },
           },
+          dismissedMatchPlayer: {
+            playerId: "player-home-1",
+            player: {
+              playerName: "Rohit Sharma",
+              slug: "rohit-sharma",
+              photoUrl: "https://example.com/rohit-sharma.png",
+            },
+          },
         },
+        ...[1, 2, 3, 4, 5].map((ballNo) => ({
+          deliveryNo: ballNo,
+          overNo: 0,
+          ballNo,
+          commentaryText: `Bumrah to Rohit, 1 run`,
+          isWide: false,
+          isNoBall: false,
+          isWicket: false,
+          batterRuns: 1,
+          wideRuns: 0,
+          noBallRuns: 0,
+          byeRuns: 0,
+          legByeRuns: 0,
+          totalRuns: 1,
+          strikerMatchPlayer: {
+            playerId: "player-home-1",
+            player: {
+              playerName: "Rohit Sharma",
+              slug: "rohit-sharma",
+              photoUrl: "https://example.com/rohit-sharma.png",
+            },
+          },
+          nonStrikerMatchPlayer: {
+            playerId: "player-home-2",
+            player: {
+              playerName: "Hardik Pandya",
+              slug: "hardik-pandya",
+              photoUrl: null,
+            },
+          },
+          bowlerMatchPlayer: {
+            playerId: "player-away-1",
+            player: {
+              playerName: "Jasprit Bumrah",
+              slug: "jasprit-bumrah",
+              photoUrl: "https://example.com/bumrah.png",
+            },
+          },
+          dismissedMatchPlayer: null,
+        })),
       ],
     },
   ],
@@ -905,6 +962,7 @@ describe("GET /api/v1/matches/:slug/commentary", () => {
     expect(firstInning.batterIntro).toBeInstanceOf(Array);
     expect(firstInning.bowlerIntro).toBeInstanceOf(Array);
     expect(firstInning.commentary).toBeInstanceOf(Array);
+    expect(firstInning.overSummaries).toBeInstanceOf(Array);
 
     if (firstInning.batterIntro.length > 0) {
       const batter = firstInning.batterIntro[0];
@@ -928,6 +986,20 @@ describe("GET /api/v1/matches/:slug/commentary", () => {
       expect(bowler).toHaveProperty("average");
       expect(bowler).toHaveProperty("economy");
       expect(bowler).toHaveProperty("best");
+    }
+
+    if (firstInning.overSummaries.length > 0) {
+      const overSummary = firstInning.overSummaries[0];
+      expect(overSummary).toHaveProperty("overNo", 1);
+      expect(overSummary).toHaveProperty("runs", 5);
+      expect(overSummary).toHaveProperty("wickets", 1);
+      expect(overSummary).toHaveProperty("battersOnCrease");
+      expect(overSummary.bowler).toEqual({
+        playerName: "Jasprit Bumrah",
+        slug: "jasprit-bumrah",
+        runs: 5,
+        overs: "1.0",
+      });
     }
   });
 

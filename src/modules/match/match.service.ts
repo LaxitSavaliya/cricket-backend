@@ -7,6 +7,9 @@ import {
   matchListSelect,
   matchPlayersBySlugSelect,
   matchScoreBySlugSelect,
+  type BattingCreasePlayer,
+  type BowlingOverPlayer,
+  type CommentaryLabel,
   type CompletedMatchResult,
   type MatchBatterIntro,
   type MatchBowlerIntro,
@@ -19,6 +22,7 @@ import {
   type MatchInningSummary,
   type MatchListItem,
   type MatchListQueryResult,
+  type MatchOverSummary,
   type MatchPlayerItem,
   type MatchPlayerQueryResult,
   type MatchPlayersBySlugQueryResult,
@@ -160,6 +164,160 @@ const formatMatchCommentaryInning = (
     }
   }
 
+  // Compute cumulative runs, wickets, batters at crease, and bowler stats after each over
+  type OverData = {
+    runs: number;
+    wickets: number;
+    battersOnCrease: BattingCreasePlayer[];
+    bowler: BowlingOverPlayer | null;
+  };
+
+  const overSummaryMap = new Map<number, OverData>();
+  let cumRuns = 0;
+  let cumWickets = 0;
+
+  // Track per-batter runs and balls faced progressively through the inning
+  const batterInningStats = new Map<
+    string,
+    { playerName: string; slug: string; runs: number; balls: number }
+  >();
+
+  // Track per-bowler runs conceded and legal balls bowled progressively through the inning
+  const bowlerInningRuns = new Map<
+    string,
+    { playerName: string; slug: string; runs: number; legalBalls: number }
+  >();
+
+  for (const ball of chronologicalBalls) {
+    cumRuns += ball.totalRuns;
+    if (ball.isWicket) {
+      cumWickets += 1;
+    }
+
+    // Update bowler runs conceded and overs bowled (wide & noball runs count towards bowler, bye & legbye do not)
+    let currentBowler: BowlingOverPlayer | null = null;
+    if (ball.bowlerMatchPlayer?.player) {
+      const bPlayer = ball.bowlerMatchPlayer.player;
+      const bStats = bowlerInningRuns.get(bPlayer.slug) || {
+        playerName: bPlayer.playerName,
+        slug: bPlayer.slug,
+        runs: 0,
+        legalBalls: 0,
+      };
+
+      bStats.runs += ball.batterRuns + ball.wideRuns + ball.noBallRuns;
+      if (!ball.isWide && !ball.isNoBall) {
+        bStats.legalBalls += 1;
+      }
+      bowlerInningRuns.set(bPlayer.slug, bStats);
+
+      const completeOvers = Math.floor(bStats.legalBalls / 6);
+      const remainingBalls = bStats.legalBalls % 6;
+      const formattedOvers = `${completeOvers}.${remainingBalls}`;
+
+      currentBowler = {
+        playerName: bStats.playerName,
+        slug: bStats.slug,
+        runs: bStats.runs,
+        overs: formattedOvers,
+      };
+    }
+
+    // Update striker stats
+    if (ball.strikerMatchPlayer?.player) {
+      const sPlayer = ball.strikerMatchPlayer.player;
+      const current = batterInningStats.get(sPlayer.slug) || {
+        playerName: sPlayer.playerName,
+        slug: sPlayer.slug,
+        runs: 0,
+        balls: 0,
+      };
+
+      current.runs += ball.batterRuns;
+      // Increment legal balls faced (wides don't count as balls faced by batter)
+      if (!ball.isWide) {
+        current.balls += 1;
+      }
+      batterInningStats.set(sPlayer.slug, current);
+    }
+
+    // Ensure non-striker is recorded in stats map if present
+    if (ball.nonStrikerMatchPlayer?.player) {
+      const nsPlayer = ball.nonStrikerMatchPlayer.player;
+      if (!batterInningStats.has(nsPlayer.slug)) {
+        batterInningStats.set(nsPlayer.slug, {
+          playerName: nsPlayer.playerName,
+          slug: nsPlayer.slug,
+          runs: 0,
+          balls: 0,
+        });
+      }
+    }
+
+    // Determine current 2 batters on crease after this ball
+    const battersOnCrease: {
+      playerName: string;
+      slug: string;
+      runs: number;
+      balls: number;
+    }[] = [];
+
+    const strikerSlug = ball.strikerMatchPlayer?.player.slug;
+    const nonStrikerSlug = ball.nonStrikerMatchPlayer?.player.slug;
+    const dismissedSlug = ball.dismissedMatchPlayer?.player.slug;
+
+    // Add striker if not dismissed on this ball
+    if (
+      strikerSlug &&
+      strikerSlug !== dismissedSlug &&
+      batterInningStats.has(strikerSlug)
+    ) {
+      battersOnCrease.push({ ...batterInningStats.get(strikerSlug)! });
+    }
+
+    // Add non-striker if not dismissed on this ball
+    if (
+      nonStrikerSlug &&
+      nonStrikerSlug !== dismissedSlug &&
+      batterInningStats.has(nonStrikerSlug)
+    ) {
+      battersOnCrease.push({ ...batterInningStats.get(nonStrikerSlug)! });
+    }
+
+    // overNo is 0-indexed in Ball (0 = 1st over, 1 = 2nd over, etc.)
+    const displayOverNo = ball.overNo + 1;
+    overSummaryMap.set(displayOverNo, {
+      runs: cumRuns,
+      wickets: cumWickets,
+      battersOnCrease,
+      bowler: currentBowler,
+    });
+  }
+
+  // Track legal balls count per 0-indexed overNo to ensure only fully completed overs (6 legal balls) are recorded in overSummaries
+  const overLegalBallsCount = new Map<number, number>();
+
+  for (const ball of chronologicalBalls) {
+    if (!ball.isWide && !ball.isNoBall) {
+      const currentCount = overLegalBallsCount.get(ball.overNo) || 0;
+      overLegalBallsCount.set(ball.overNo, currentCount + 1);
+    }
+  }
+
+  const overSummaries: MatchOverSummary[] = Array.from(overSummaryMap.entries())
+    .filter(([displayOverNo]) => {
+      const overNo = displayOverNo - 1; // Convert back to 0-indexed overNo
+      const legalBallsInOver = overLegalBallsCount.get(overNo) || 0;
+      return legalBallsInOver >= 6;
+    })
+    .map(([overNo, stats]) => ({
+      overNo,
+      runs: stats.runs,
+      wickets: stats.wickets,
+      battersOnCrease: stats.battersOnCrease,
+      bowler: stats.bowler,
+    }));
+
   return {
     batterIntro: Array.from(batterMap.values()).map(
       ({ playerId: _playerId, ...batterIntro }) => batterIntro,
@@ -167,12 +325,38 @@ const formatMatchCommentaryInning = (
     bowlerIntro: Array.from(bowlerMap.values()).map(
       ({ playerId: _playerId, ...bowlerIntro }) => bowlerIntro,
     ),
+    overSummaries,
     commentary: inning.ballsData.map((ball) => {
+      let shortLabel: CommentaryLabel;
+
+      if (ball.isWicket) {
+        shortLabel = "W";
+      } else if (ball.isWide) {
+        // Wide runs (1 wide run + extra runs)
+        const totalWide = ball.wideRuns || 1;
+        const extraWide = totalWide - 1;
+        shortLabel =
+          extraWide > 0 ? (`Wd${extraWide}` as CommentaryLabel) : "Wd";
+      } else if (ball.isNoBall) {
+        // No ball runs (1 noball + batter/extra runs)
+        const runOffNb = ball.batterRuns + ball.byeRuns + ball.legByeRuns;
+        shortLabel = runOffNb > 0 ? (`Nb${runOffNb}` as CommentaryLabel) : "Nb";
+      } else if (ball.byeRuns > 0) {
+        shortLabel = `B${ball.byeRuns}` as CommentaryLabel;
+      } else if (ball.legByeRuns > 0) {
+        shortLabel = `Lb${ball.legByeRuns}` as CommentaryLabel;
+      } else if (ball.batterRuns === 0) {
+        shortLabel = ".";
+      } else {
+        shortLabel = ball.batterRuns.toString() as CommentaryLabel;
+      }
+
       return {
         deliveryNo: ball.deliveryNo,
         overNo: ball.overNo,
         ballNo: ball.ballNo,
         commentaryText: ball.commentaryText,
+        shortLabel,
       };
     }),
   };
