@@ -9,9 +9,18 @@ import app from "./app.js";
 |--------------------------------------------------------------------------
 */
 
-const { findManyMock, findUniqueMock } = vi.hoisted(() => ({
+const {
+  findManyMock,
+  findUniqueMock,
+  matchPlayerCountMock,
+  matchPlayerAggregateMock,
+  matchPlayerFindFirstMock,
+} = vi.hoisted(() => ({
   findManyMock: vi.fn(),
   findUniqueMock: vi.fn(),
+  matchPlayerCountMock: vi.fn(),
+  matchPlayerAggregateMock: vi.fn(),
+  matchPlayerFindFirstMock: vi.fn(),
 }));
 
 vi.mock("./config/prisma.js", () => ({
@@ -19,6 +28,11 @@ vi.mock("./config/prisma.js", () => ({
     match: {
       findMany: findManyMock,
       findUnique: findUniqueMock,
+    },
+    matchPlayer: {
+      count: matchPlayerCountMock,
+      aggregate: matchPlayerAggregateMock,
+      findFirst: matchPlayerFindFirstMock,
     },
   },
 }));
@@ -55,10 +69,6 @@ const matchDate = new Date("2026-07-09T00:00:00.000Z");
 |--------------------------------------------------------------------------
 | Raw Prisma results
 |--------------------------------------------------------------------------
-|
-| These objects must match the data selected by Prisma.
-| They should not contain the final formatted API response.
-|
 */
 
 const matchListQueryResult = {
@@ -276,6 +286,108 @@ const matchScoreQueryResult = {
   ],
 };
 
+const matchCommentaryQueryResult = {
+  id: matchId,
+  slug: matchSlug,
+  matchFormat: "T20",
+  matchDate,
+  innings: [
+    {
+      id: "inning-1",
+      inningsNo: "FIRST",
+      ballsData: [
+        {
+          deliveryNo: 6,
+          overNo: 0,
+          ballNo: 6,
+          commentaryText: "Bumrah to Rohit, OUT!",
+          isWide: false,
+          isNoBall: false,
+          isWicket: true,
+          batterRuns: 0,
+          wideRuns: 0,
+          noBallRuns: 0,
+          byeRuns: 0,
+          legByeRuns: 0,
+          totalRuns: 0,
+          strikerMatchPlayer: {
+            playerId: "player-home-1",
+            player: {
+              playerName: "Rohit Sharma",
+              slug: "rohit-sharma",
+              photoUrl: "https://example.com/rohit-sharma.png",
+            },
+          },
+          nonStrikerMatchPlayer: {
+            playerId: "player-home-2",
+            player: {
+              playerName: "Hardik Pandya",
+              slug: "hardik-pandya",
+              photoUrl: null,
+            },
+          },
+          bowlerMatchPlayer: {
+            playerId: "player-away-1",
+            player: {
+              playerName: "Jasprit Bumrah",
+              slug: "jasprit-bumrah",
+              photoUrl: "https://example.com/bumrah.png",
+            },
+          },
+          dismissedMatchPlayer: {
+            playerId: "player-home-1",
+            player: {
+              playerName: "Rohit Sharma",
+              slug: "rohit-sharma",
+              photoUrl: "https://example.com/rohit-sharma.png",
+            },
+          },
+        },
+        ...[1, 2, 3, 4, 5].map((ballNo) => ({
+          deliveryNo: ballNo,
+          overNo: 0,
+          ballNo,
+          commentaryText: `Bumrah to Rohit, 1 run`,
+          isWide: false,
+          isNoBall: false,
+          isWicket: false,
+          batterRuns: 1,
+          wideRuns: 0,
+          noBallRuns: 0,
+          byeRuns: 0,
+          legByeRuns: 0,
+          totalRuns: 1,
+          strikerMatchPlayer: {
+            playerId: "player-home-1",
+            player: {
+              playerName: "Rohit Sharma",
+              slug: "rohit-sharma",
+              photoUrl: "https://example.com/rohit-sharma.png",
+            },
+          },
+          nonStrikerMatchPlayer: {
+            playerId: "player-home-2",
+            player: {
+              playerName: "Hardik Pandya",
+              slug: "hardik-pandya",
+              photoUrl: null,
+            },
+          },
+          bowlerMatchPlayer: {
+            playerId: "player-away-1",
+            player: {
+              playerName: "Jasprit Bumrah",
+              slug: "jasprit-bumrah",
+              photoUrl: "https://example.com/bumrah.png",
+            },
+          },
+          dismissedMatchPlayer: null,
+        })),
+      ],
+    },
+  ],
+};
+
 /*
 |--------------------------------------------------------------------------
 | Setup
@@ -284,6 +396,24 @@ const matchScoreQueryResult = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+/*
+|--------------------------------------------------------------------------
+| GET /health
+|--------------------------------------------------------------------------
+*/
+
+describe("GET /health", () => {
+  it("returns server health status", async () => {
+    const response = await request(app).get("/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("Service healthy");
+    expect(response.body.data).toHaveProperty("uptime");
+    expect(response.body.data).toHaveProperty("timestamp");
+  });
 });
 
 /*
@@ -781,6 +911,103 @@ describe("GET /api/v1/matches/:slug/score", () => {
 
     const response = await request(app).get(
       "/api/v1/matches/unknown-match/score",
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe("Match not found.");
+  });
+});
+
+/*
+|--------------------------------------------------------------------------
+| GET /api/v1/matches/:slug/commentary
+|--------------------------------------------------------------------------
+*/
+
+describe("GET /api/v1/matches/:slug/commentary", () => {
+  it("returns match commentary with batterIntro and bowlerIntro for a valid slug", async () => {
+    findUniqueMock.mockResolvedValueOnce(matchCommentaryQueryResult);
+    matchPlayerCountMock.mockResolvedValue(10);
+    matchPlayerAggregateMock.mockResolvedValue({
+      _sum: {
+        runsScored: 250,
+        ballsFaced: 180,
+        wickets: 15,
+        runsConceded: 300,
+        legalBallsBowled: 240,
+      },
+    });
+    matchPlayerFindFirstMock.mockResolvedValue({
+      runsScored: 85,
+      isOut: false,
+      wickets: 4,
+      runsConceded: 20,
+    });
+
+    const response = await request(app).get(
+      `/api/v1/matches/${matchSlug}/commentary`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe(
+      "Match commentary fetched successfully.",
+    );
+
+    const { firstInning, secondInning } = response.body.data;
+    expect(firstInning).not.toBeNull();
+    expect(secondInning).toBeNull();
+
+    expect(firstInning.batterIntro).toBeInstanceOf(Array);
+    expect(firstInning.bowlerIntro).toBeInstanceOf(Array);
+    expect(firstInning.commentary).toBeInstanceOf(Array);
+    expect(firstInning.overSummaries).toBeInstanceOf(Array);
+
+    if (firstInning.batterIntro.length > 0) {
+      const batter = firstInning.batterIntro[0];
+      expect(batter).toHaveProperty("playerName");
+      expect(batter).toHaveProperty("slug");
+      expect(batter).toHaveProperty("deliveryNo");
+      expect(batter).toHaveProperty("matches");
+      expect(batter).toHaveProperty("runs");
+      expect(batter).toHaveProperty("strikeRate");
+      expect(batter).toHaveProperty("average");
+      expect(batter).toHaveProperty("best");
+    }
+
+    if (firstInning.bowlerIntro.length > 0) {
+      const bowler = firstInning.bowlerIntro[0];
+      expect(bowler).toHaveProperty("playerName");
+      expect(bowler).toHaveProperty("slug");
+      expect(bowler).toHaveProperty("deliveryNo");
+      expect(bowler).toHaveProperty("matches");
+      expect(bowler).toHaveProperty("wickets");
+      expect(bowler).toHaveProperty("average");
+      expect(bowler).toHaveProperty("economy");
+      expect(bowler).toHaveProperty("best");
+    }
+
+    if (firstInning.overSummaries.length > 0) {
+      const overSummary = firstInning.overSummaries[0];
+      expect(overSummary).toHaveProperty("overNo", 1);
+      expect(overSummary).toHaveProperty("runs", 5);
+      expect(overSummary).toHaveProperty("wickets", 1);
+      expect(overSummary).toHaveProperty("battersOnCrease");
+      expect(overSummary.bowler).toEqual({
+        playerName: "Jasprit Bumrah",
+        slug: "jasprit-bumrah",
+        runs: 5,
+        overs: "1.0",
+      });
+    }
+  });
+
+  it("returns 404 when the match commentary does not exist", async () => {
+    findUniqueMock.mockResolvedValueOnce(null);
+
+    const response = await request(app).get(
+      "/api/v1/matches/unknown-match/commentary",
     );
 
     expect(response.status).toBe(404);

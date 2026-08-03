@@ -458,7 +458,52 @@ export const matchCommentaryBySlugSelect = {
           overNo: true,
           ballNo: true,
           commentaryText: true,
+          isWide: true,
+          isNoBall: true,
+          isWicket: true,
+          batterRuns: true,
+          wideRuns: true,
+          noBallRuns: true,
+          byeRuns: true,
+          legByeRuns: true,
+          totalRuns: true,
+          strikerMatchPlayer: {
+            select: {
+              playerId: true,
+              player: {
+                select: {
+                  playerName: true,
+                  slug: true,
+                  photoUrl: true,
+                },
+              },
+            },
+          },
+          nonStrikerMatchPlayer: {
+            select: {
+              playerId: true,
+              player: {
+                select: {
+                  playerName: true,
+                  slug: true,
+                  photoUrl: true,
+                },
+              },
+            },
+          },
           bowlerMatchPlayer: {
+            select: {
+              playerId: true,
+              player: {
+                select: {
+                  playerName: true,
+                  slug: true,
+                  photoUrl: true,
+                },
+              },
+            },
+          },
+          dismissedMatchPlayer: {
             select: {
               playerId: true,
               player: {
@@ -491,11 +536,57 @@ export type MatchCommentaryBySlugQueryResult = Prisma.MatchGetPayload<{
 export type MatchCommentaryInningQueryResult =
   MatchCommentaryBySlugQueryResult["innings"][number];
 
+export type CommentaryLabel =
+  | "."
+  | "1"
+  | "2"
+  | "3"
+  | "4"
+  | "5"
+  | "6"
+  | "W"
+  | "Wd"
+  | "Wd1"
+  | "Wd2"
+  | "Wd3"
+  | "Wd4"
+  | "Wd5"
+  | "Nb"
+  | "Nb1"
+  | "Nb2"
+  | "Nb3"
+  | "Nb4"
+  | "Nb5"
+  | "Nb6"
+  | "B1"
+  | "B2"
+  | "B3"
+  | "B4"
+  | "B5"
+  | "Lb1"
+  | "Lb2"
+  | "Lb3"
+  | "Lb4"
+  | "Lb5";
+
 export type MatchCommentaryItem = {
   deliveryNo: number;
   overNo: number;
   ballNo: number;
   commentaryText: string;
+  shortLabel: CommentaryLabel;
+};
+
+export type MatchBatterIntro = {
+  playerName: string;
+  slug: string;
+  photoUrl: string | null;
+  deliveryNo: number;
+  matches: number;
+  runs: number;
+  strikeRate: number;
+  average: number;
+  best: string;
 };
 
 export type MatchBowlerIntro = {
@@ -503,16 +594,40 @@ export type MatchBowlerIntro = {
   slug: string;
   photoUrl: string | null;
   deliveryNo: number;
-  match: number;
-  wicket: number;
+  matches: number;
+  wickets: number;
   average: number;
   economy: number;
   best: string;
 };
 
+export type BattingCreasePlayer = {
+  playerName: string;
+  slug: string;
+  runs: number; // Runs scored in the innings up to that point
+  balls: number; // Balls faced in the innings up to that point
+};
+
+export type BowlingOverPlayer = {
+  playerName: string;
+  slug: string;
+  runs: number; // Total runs conceded by bowler in the innings up to that point / end of this over
+  overs: string; // Formatted overs bowled up to that point (e.g. "3.0" or "2.4")
+};
+
+export type MatchOverSummary = {
+  overNo: number; // 1-based index (e.g. 1 for overNo=0, 2 for overNo=1, ..., up to maxOvers)
+  runs: number; // Cumulative team runs at the end of this over
+  wickets: number; // Cumulative team wickets at the end of this over
+  battersOnCrease: BattingCreasePlayer[]; // Batters currently on crease (striker & non-striker) at end of over
+  bowler: BowlingOverPlayer | null; // Bowler who bowled this over
+};
+
 export type MatchInningCommentary = {
+  batterIntro: MatchBatterIntro[];
   bowlerIntro: MatchBowlerIntro[];
   commentary: MatchCommentaryItem[];
+  overSummaries: MatchOverSummary[];
 };
 
 export type MatchCommentaryResponse = {
