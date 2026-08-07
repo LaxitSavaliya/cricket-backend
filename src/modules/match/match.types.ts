@@ -9,7 +9,7 @@ const matchTeamSelect = {
 
 const matchPlayerProfileSelect = {
   id: true,
-  playerName: true,
+  name: true,
   displayName: true,
   slug: true,
   role: true,
@@ -190,7 +190,7 @@ export const matchPlayersBySlugSelect = {
       },
       {
         player: {
-          playerName: "asc",
+          name: "asc",
         },
       },
     ],
@@ -206,7 +206,7 @@ export type MatchPlayerQueryResult =
 
 export type MatchPlayerItem = {
   id: MatchPlayerQueryResult["player"]["id"];
-  playerName: MatchPlayerQueryResult["player"]["playerName"];
+  name: MatchPlayerQueryResult["player"]["name"];
   displayName: string;
   slug: MatchPlayerQueryResult["player"]["slug"];
   role: MatchPlayerQueryResult["player"]["role"];
@@ -235,7 +235,7 @@ export type MatchPlayersResponse = {
 */
 
 const matchScorePlayerProfileSelect = {
-  playerName: true,
+  name: true,
   slug: true,
 } satisfies Prisma.PlayerSelect;
 
@@ -363,7 +363,7 @@ export type MatchScorePlayerQueryResult =
   MatchScoreBySlugQueryResult["players"][number];
 
 export type MatchScorePlayer = {
-  playerName: string;
+  name: string;
   slug: string;
 };
 
@@ -472,7 +472,7 @@ export const matchCommentaryBySlugSelect = {
               playerId: true,
               player: {
                 select: {
-                  playerName: true,
+                  name: true,
                   slug: true,
                   photoUrl: true,
                 },
@@ -484,7 +484,7 @@ export const matchCommentaryBySlugSelect = {
               playerId: true,
               player: {
                 select: {
-                  playerName: true,
+                  name: true,
                   slug: true,
                   photoUrl: true,
                 },
@@ -496,7 +496,7 @@ export const matchCommentaryBySlugSelect = {
               playerId: true,
               player: {
                 select: {
-                  playerName: true,
+                  name: true,
                   slug: true,
                   photoUrl: true,
                 },
@@ -508,7 +508,7 @@ export const matchCommentaryBySlugSelect = {
               playerId: true,
               player: {
                 select: {
-                  playerName: true,
+                  name: true,
                   slug: true,
                   photoUrl: true,
                 },
@@ -578,7 +578,7 @@ export type MatchCommentaryItem = {
 };
 
 export type MatchBatterIntro = {
-  playerName: string;
+  name: string;
   slug: string;
   photoUrl: string | null;
   deliveryNo: number;
@@ -590,7 +590,7 @@ export type MatchBatterIntro = {
 };
 
 export type MatchBowlerIntro = {
-  playerName: string;
+  name: string;
   slug: string;
   photoUrl: string | null;
   deliveryNo: number;
@@ -602,14 +602,14 @@ export type MatchBowlerIntro = {
 };
 
 export type BattingCreasePlayer = {
-  playerName: string;
+  name: string;
   slug: string;
   runs: number; // Runs scored in the innings up to that point
   balls: number; // Balls faced in the innings up to that point
 };
 
 export type BowlingOverPlayer = {
-  playerName: string;
+  name: string;
   slug: string;
   runs: number; // Total runs conceded by bowler in the innings up to that point / end of this over
   overs: string; // Formatted overs bowled up to that point (e.g. "3.0" or "2.4")

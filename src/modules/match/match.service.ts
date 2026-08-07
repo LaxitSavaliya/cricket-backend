@@ -109,7 +109,7 @@ const formatMatchCommentaryInning = (
       if (!batterMap.has(striker.slug)) {
         const stats = batterStatsMap.get(strikerMatchPlayer.playerId);
         batterMap.set(striker.slug, {
-          playerName: striker.playerName,
+          name: striker.name,
           slug: striker.slug,
           photoUrl: striker.photoUrl,
           deliveryNo: ball.deliveryNo,
@@ -130,7 +130,7 @@ const formatMatchCommentaryInning = (
       if (!batterMap.has(nonStriker.slug)) {
         const stats = batterStatsMap.get(nonStrikerMatchPlayer.playerId);
         batterMap.set(nonStriker.slug, {
-          playerName: nonStriker.playerName,
+          name: nonStriker.name,
           slug: nonStriker.slug,
           photoUrl: nonStriker.photoUrl,
           deliveryNo: ball.deliveryNo,
@@ -150,7 +150,7 @@ const formatMatchCommentaryInning = (
     if (!bowlerMap.has(bowler.slug)) {
       const stats = bowlerStatsMap.get(bowlerMatchPlayer.playerId);
       bowlerMap.set(bowler.slug, {
-        playerName: bowler.playerName,
+        name: bowler.name,
         slug: bowler.slug,
         photoUrl: bowler.photoUrl,
         deliveryNo: ball.deliveryNo,
@@ -179,13 +179,13 @@ const formatMatchCommentaryInning = (
   // Track per-batter runs and balls faced progressively through the inning
   const batterInningStats = new Map<
     string,
-    { playerName: string; slug: string; runs: number; balls: number }
+    { name: string; slug: string; runs: number; balls: number }
   >();
 
   // Track per-bowler runs conceded and legal balls bowled progressively through the inning
   const bowlerInningRuns = new Map<
     string,
-    { playerName: string; slug: string; runs: number; legalBalls: number }
+    { name: string; slug: string; runs: number; legalBalls: number }
   >();
 
   for (const ball of chronologicalBalls) {
@@ -199,7 +199,7 @@ const formatMatchCommentaryInning = (
     if (ball.bowlerMatchPlayer?.player) {
       const bPlayer = ball.bowlerMatchPlayer.player;
       const bStats = bowlerInningRuns.get(bPlayer.slug) || {
-        playerName: bPlayer.playerName,
+        name: bPlayer.name,
         slug: bPlayer.slug,
         runs: 0,
         legalBalls: 0,
@@ -216,7 +216,7 @@ const formatMatchCommentaryInning = (
       const formattedOvers = `${completeOvers}.${remainingBalls}`;
 
       currentBowler = {
-        playerName: bStats.playerName,
+        name: bStats.name,
         slug: bStats.slug,
         runs: bStats.runs,
         overs: formattedOvers,
@@ -227,7 +227,7 @@ const formatMatchCommentaryInning = (
     if (ball.strikerMatchPlayer?.player) {
       const sPlayer = ball.strikerMatchPlayer.player;
       const current = batterInningStats.get(sPlayer.slug) || {
-        playerName: sPlayer.playerName,
+        name: sPlayer.name,
         slug: sPlayer.slug,
         runs: 0,
         balls: 0,
@@ -246,7 +246,7 @@ const formatMatchCommentaryInning = (
       const nsPlayer = ball.nonStrikerMatchPlayer.player;
       if (!batterInningStats.has(nsPlayer.slug)) {
         batterInningStats.set(nsPlayer.slug, {
-          playerName: nsPlayer.playerName,
+          name: nsPlayer.name,
           slug: nsPlayer.slug,
           runs: 0,
           balls: 0,
@@ -256,7 +256,7 @@ const formatMatchCommentaryInning = (
 
     // Determine current 2 batters on crease after this ball
     const battersOnCrease: {
-      playerName: string;
+      name: string;
       slug: string;
       runs: number;
       balls: number;
@@ -630,7 +630,7 @@ const formatScorePlayer = (
   matchPlayer: MatchScorePlayerQueryResult,
 ): MatchScorePlayer => {
   return {
-    playerName: matchPlayer.player.playerName,
+    name: matchPlayer.player.name,
     slug: matchPlayer.player.slug,
   };
 };
@@ -677,9 +677,7 @@ const comparePlayerNames = (
   firstPlayer: MatchScorePlayerQueryResult,
   secondPlayer: MatchScorePlayerQueryResult,
 ): number => {
-  return firstPlayer.player.playerName.localeCompare(
-    secondPlayer.player.playerName,
-  );
+  return firstPlayer.player.name.localeCompare(secondPlayer.player.name);
 };
 
 const formatDismissalText = (
@@ -701,13 +699,12 @@ const formatDismissalText = (
     return "";
   }
 
-  const bowlerName = dismissalBall?.bowlerMatchPlayer.player.playerName ?? "";
+  const bowlerName = dismissalBall?.bowlerMatchPlayer.player.name ?? "";
 
-  const fielderName =
-    dismissalBall?.fielderMatchPlayer?.player.playerName ?? "";
+  const fielderName = dismissalBall?.fielderMatchPlayer?.player.name ?? "";
 
   const assistFielderName =
-    dismissalBall?.assistFielderMatchPlayer?.player.playerName ?? "";
+    dismissalBall?.assistFielderMatchPlayer?.player.name ?? "";
 
   switch (dismissalType) {
     case "BOWLED":
@@ -1329,12 +1326,12 @@ const formatMatchDetails = (
 };
 
 const resolvePlayerDisplayName = (
-  playerName: string,
+  name: string,
   displayName: string | null,
 ): string => {
   const normalizedDisplayName = displayName?.trim();
 
-  return normalizedDisplayName || playerName;
+  return normalizedDisplayName || name;
 };
 
 const formatMatchPlayer = (
@@ -1344,11 +1341,8 @@ const formatMatchPlayer = (
 
   return {
     id: player.id,
-    playerName: player.playerName,
-    displayName: resolvePlayerDisplayName(
-      player.playerName,
-      player.displayName,
-    ),
+    name: player.name,
+    displayName: resolvePlayerDisplayName(player.name, player.displayName),
     slug: player.slug,
     role: player.role,
     photoUrl: player.photoUrl,

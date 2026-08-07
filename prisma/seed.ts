@@ -10,6 +10,7 @@ import matchPlayers, {
 import { matchGenerationOptions } from "./seed-data/options.js";
 import players from "./seed-data/players.js";
 import teams from "./seed-data/teams.js";
+import users from "./seed-data/users.js";
 import { getMatchDataForMatch } from "./seed-utils/generate-matchData.js";
 
 const databaseUrl = process.env["DATABASE_URL"];
@@ -256,6 +257,7 @@ const seedDatabase = async (): Promise<void> => {
        * db:seed expects an empty application database.
        * Use `npm run db:reset` to clean and seed together.
        */
+      const existingUserCount = await transaction.user.count();
       const existingTeamCount = await transaction.team.count();
       const existingPlayerCount = await transaction.player.count();
       const existingMatchCount = await transaction.match.count();
@@ -264,6 +266,7 @@ const seedDatabase = async (): Promise<void> => {
       const existingBallCount = await transaction.ball.count();
 
       const databaseContainsSeedData =
+        existingUserCount > 0 ||
         existingTeamCount > 0 ||
         existingPlayerCount > 0 ||
         existingMatchCount > 0 ||
@@ -283,6 +286,12 @@ const seedDatabase = async (): Promise<void> => {
        * foreign keys that reference them.
        */
 
+      console.log("Seeding users...");
+
+      const usersResult = await transaction.user.createMany({
+        data: users,
+      });
+
       console.log("Seeding teams...");
 
       const teamsResult = await transaction.team.createMany({
@@ -292,7 +301,10 @@ const seedDatabase = async (): Promise<void> => {
       console.log("Seeding players...");
 
       const playersResult = await transaction.player.createMany({
-        data: players,
+        data: players.map((player) => ({
+          ...player,
+          birthDate: player.birthDate ? new Date(player.birthDate) : null,
+        })),
       });
 
       console.log("Seeding matches...");
@@ -328,6 +340,7 @@ const seedDatabase = async (): Promise<void> => {
       }
 
       return {
+        users: usersResult.count,
         teams: teamsResult.count,
         players: playersResult.count,
         matches: matchesResult.count,

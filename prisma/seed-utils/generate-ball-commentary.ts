@@ -59,7 +59,7 @@ for (const matchPlayer of matchPlayers) {
     );
   }
 
-  const resolvedName = player.displayName?.trim() || player.playerName.trim();
+  const resolvedName = player.displayName?.trim() || player.name.trim();
 
   if (!resolvedName) {
     throw new Error(
