@@ -60,6 +60,30 @@ const envSchema = z
       z.union([z.literal("*"), z.array(z.string().url()).min(1)]).optional(),
     ),
 
+    GOOGLE_CLIENT_ID: z
+      .string()
+      .trim()
+      .min(1, "GOOGLE_CLIENT_ID is required")
+      .refine((value) => value.endsWith(".apps.googleusercontent.com"), {
+        message: "GOOGLE_CLIENT_ID must be a valid Google OAuth client ID",
+      }),
+
+    JWT_SECRET: z
+      .string()
+      .trim()
+      .min(32, "JWT_SECRET must be at least 32 characters"),
+
+    AUTH_COOKIE_NAME: z.preprocess(
+      emptyStringToUndefined,
+      z.string().trim().default("cricket_session"),
+    ),
+
+    AUTH_SESSION_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(7 * 24 * 60 * 60),
+
     LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).optional(),
 
     REQUEST_BODY_LIMIT: z

@@ -113,9 +113,55 @@ enum PitchEnd {
   BOWLER_END
 }
 
+enum BattingStyle {
+  RIGHT_HANDED_BATSMAN
+  LEFT_HANDED_BATSMAN
+}
+
+enum BowlingStyle {
+  RIGHT_ARM_FAST
+  RIGHT_ARM_MEDIUM_FAST
+  RIGHT_ARM_MEDIUM
+  RIGHT_ARM_SLOW_MEDIUM
+  RIGHT_ARM_SLOW
+
+  LEFT_ARM_FAST
+  LEFT_ARM_MEDIUM_FAST
+  LEFT_ARM_MEDIUM
+  LEFT_ARM_SLOW_MEDIUM
+  LEFT_ARM_SLOW
+
+  RIGHT_ARM_OFF_SPIN
+  RIGHT_ARM_LEG_SPIN
+
+  LEFT_ARM_OFF_SPIN
+  LEFT_ARM_LEG_SPIN
+}
+
+model User {
+  id String @id @default(cuid())
+
+  // Google-provided identity
+  googleId  String  @unique // "sub" claim from Google — permanent unique ID
+  email     String  @unique // from Google profile, already verified by Google
+  name      String? // Google display name (optional prefill for Player.name)
+  avatarUrl String? // Google profile picture (optional prefill for Player.photoUrl)
+
+  player Player?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
 model Player {
-  id          String     @id @default(cuid())
-  playerName  String
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  name        String
   displayName String?
   slug        String     @unique
   photoUrl    String?
@@ -123,12 +169,20 @@ model Player {
 
   canKeepWickets Boolean @default(false)
 
+  battingStyle BattingStyle?
+  bowlingStyle BowlingStyle?
+
+  city  String?
+  state String?
+
+  birthDate DateTime?
+
   matchPlayers MatchPlayer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([playerName])
+  @@index([name])
   @@index([displayName])
   @@index([role])
   @@map("players")

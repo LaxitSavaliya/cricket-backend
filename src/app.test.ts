@@ -133,7 +133,7 @@ const matchPlayersQueryResult = {
       isViceCaptain: false,
       player: {
         id: "player-home-1",
-        playerName: "Rohit Sharma",
+        name: "Rohit Sharma",
         displayName: "Rohit",
         role: "BATSMAN",
         photoUrl: "https://example.com/rohit-sharma.png",
@@ -146,7 +146,7 @@ const matchPlayersQueryResult = {
       isViceCaptain: true,
       player: {
         id: "player-home-2",
-        playerName: "Hardik Pandya",
+        name: "Hardik Pandya",
         displayName: null,
         role: "ALL_ROUNDER",
         photoUrl: null,
@@ -159,7 +159,7 @@ const matchPlayersQueryResult = {
       isViceCaptain: false,
       player: {
         id: "player-home-3",
-        playerName: "Arjun Tendulkar",
+        name: "Arjun Tendulkar",
         displayName: "   ",
         role: "BOWLER",
         photoUrl: null,
@@ -172,7 +172,7 @@ const matchPlayersQueryResult = {
       isViceCaptain: false,
       player: {
         id: "player-away-1",
-        playerName: "MS Dhoni",
+        name: "MS Dhoni",
         displayName: "Dhoni",
         role: "BATSMAN",
         photoUrl: "https://example.com/ms-dhoni.png",
@@ -185,7 +185,7 @@ const matchPlayersQueryResult = {
       isViceCaptain: false,
       player: {
         id: "player-away-2",
-        playerName: "Tushar Deshpande",
+        name: "Tushar Deshpande",
         displayName: null,
         role: "BOWLER",
         photoUrl: null,
@@ -213,7 +213,7 @@ const matchScoreQueryResult = {
       runsConceded: 0,
       wickets: 0,
       player: {
-        playerName: "Rohit Sharma",
+        name: "Rohit Sharma",
         slug: "rohit-sharma",
       },
     },
@@ -234,7 +234,7 @@ const matchScoreQueryResult = {
       runsConceded: 25,
       wickets: 2,
       player: {
-        playerName: "MS Dhoni",
+        name: "MS Dhoni",
         slug: "ms-dhoni",
       },
     },
@@ -274,7 +274,7 @@ const matchScoreQueryResult = {
           assistFielderMatchPlayerId: null,
           bowlerMatchPlayer: {
             player: {
-              playerName: "MS Dhoni",
+              name: "MS Dhoni",
               slug: "ms-dhoni",
             },
           },
@@ -313,7 +313,7 @@ const matchCommentaryQueryResult = {
           strikerMatchPlayer: {
             playerId: "player-home-1",
             player: {
-              playerName: "Rohit Sharma",
+              name: "Rohit Sharma",
               slug: "rohit-sharma",
               photoUrl: "https://example.com/rohit-sharma.png",
             },
@@ -321,7 +321,7 @@ const matchCommentaryQueryResult = {
           nonStrikerMatchPlayer: {
             playerId: "player-home-2",
             player: {
-              playerName: "Hardik Pandya",
+              name: "Hardik Pandya",
               slug: "hardik-pandya",
               photoUrl: null,
             },
@@ -329,7 +329,7 @@ const matchCommentaryQueryResult = {
           bowlerMatchPlayer: {
             playerId: "player-away-1",
             player: {
-              playerName: "Jasprit Bumrah",
+              name: "Jasprit Bumrah",
               slug: "jasprit-bumrah",
               photoUrl: "https://example.com/bumrah.png",
             },
@@ -337,7 +337,7 @@ const matchCommentaryQueryResult = {
           dismissedMatchPlayer: {
             playerId: "player-home-1",
             player: {
-              playerName: "Rohit Sharma",
+              name: "Rohit Sharma",
               slug: "rohit-sharma",
               photoUrl: "https://example.com/rohit-sharma.png",
             },
@@ -360,7 +360,7 @@ const matchCommentaryQueryResult = {
           strikerMatchPlayer: {
             playerId: "player-home-1",
             player: {
-              playerName: "Rohit Sharma",
+              name: "Rohit Sharma",
               slug: "rohit-sharma",
               photoUrl: "https://example.com/rohit-sharma.png",
             },
@@ -368,7 +368,7 @@ const matchCommentaryQueryResult = {
           nonStrikerMatchPlayer: {
             playerId: "player-home-2",
             player: {
-              playerName: "Hardik Pandya",
+              name: "Hardik Pandya",
               slug: "hardik-pandya",
               photoUrl: null,
             },
@@ -376,7 +376,7 @@ const matchCommentaryQueryResult = {
           bowlerMatchPlayer: {
             playerId: "player-away-1",
             player: {
-              playerName: "Jasprit Bumrah",
+              name: "Jasprit Bumrah",
               slug: "jasprit-bumrah",
               photoUrl: "https://example.com/bumrah.png",
             },
@@ -706,7 +706,7 @@ describe("GET /api/v1/matches/:slug/players", () => {
           players: [
             {
               id: "player-home-1",
-              playerName: "Rohit Sharma",
+              name: "Rohit Sharma",
               displayName: "Rohit",
               role: "BATSMAN",
               photoUrl: "https://example.com/rohit-sharma.png",
@@ -715,7 +715,7 @@ describe("GET /api/v1/matches/:slug/players", () => {
             },
             {
               id: "player-home-2",
-              playerName: "Hardik Pandya",
+              name: "Hardik Pandya",
               displayName: "Hardik Pandya",
               role: "ALL_ROUNDER",
               photoUrl: null,
@@ -727,7 +727,7 @@ describe("GET /api/v1/matches/:slug/players", () => {
           benchPlayers: [
             {
               id: "player-home-3",
-              playerName: "Arjun Tendulkar",
+              name: "Arjun Tendulkar",
               displayName: "Arjun Tendulkar",
               role: "BOWLER",
               photoUrl: null,
@@ -747,7 +747,7 @@ describe("GET /api/v1/matches/:slug/players", () => {
           players: [
             {
               id: "player-away-1",
-              playerName: "MS Dhoni",
+              name: "MS Dhoni",
               displayName: "Dhoni",
               role: "BATSMAN",
               photoUrl: "https://example.com/ms-dhoni.png",
@@ -759,7 +759,7 @@ describe("GET /api/v1/matches/:slug/players", () => {
           benchPlayers: [
             {
               id: "player-away-2",
-              playerName: "Tushar Deshpande",
+              name: "Tushar Deshpande",
               displayName: "Tushar Deshpande",
               role: "BOWLER",
               photoUrl: null,
@@ -966,7 +966,7 @@ describe("GET /api/v1/matches/:slug/commentary", () => {
 
     if (firstInning.batterIntro.length > 0) {
       const batter = firstInning.batterIntro[0];
-      expect(batter).toHaveProperty("playerName");
+      expect(batter).toHaveProperty("name");
       expect(batter).toHaveProperty("slug");
       expect(batter).toHaveProperty("deliveryNo");
       expect(batter).toHaveProperty("matches");
@@ -978,7 +978,7 @@ describe("GET /api/v1/matches/:slug/commentary", () => {
 
     if (firstInning.bowlerIntro.length > 0) {
       const bowler = firstInning.bowlerIntro[0];
-      expect(bowler).toHaveProperty("playerName");
+      expect(bowler).toHaveProperty("name");
       expect(bowler).toHaveProperty("slug");
       expect(bowler).toHaveProperty("deliveryNo");
       expect(bowler).toHaveProperty("matches");
@@ -995,7 +995,7 @@ describe("GET /api/v1/matches/:slug/commentary", () => {
       expect(overSummary).toHaveProperty("wickets", 1);
       expect(overSummary).toHaveProperty("battersOnCrease");
       expect(overSummary.bowler).toEqual({
-        playerName: "Jasprit Bumrah",
+        name: "Jasprit Bumrah",
         slug: "jasprit-bumrah",
         runs: 5,
         overs: "1.0",

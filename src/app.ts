@@ -1,4 +1,5 @@
 import compression from "compression";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { type Application } from "express";
 import rateLimit from "express-rate-limit";
@@ -126,6 +127,8 @@ app.use(
     limit: env.REQUEST_BODY_LIMIT,
   }),
 );
+
+app.use(cookieParser());
 
 app.use(routes);
 
