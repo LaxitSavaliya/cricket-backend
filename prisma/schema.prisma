@@ -141,11 +141,11 @@ enum BowlingStyle {
 model User {
   id String @id @default(cuid())
 
-  email  String? @unique
-  mobile String? @unique
-
-  isEmailVerified  Boolean @default(false)
-  isMobileVerified Boolean @default(false)
+  // Google-provided identity
+  googleId  String  @unique // "sub" claim from Google — permanent unique ID
+  email     String  @unique // from Google profile, already verified by Google
+  name      String? // Google display name (optional prefill for Player.name)
+  avatarUrl String? // Google profile picture (optional prefill for Player.photoUrl)
 
   player Player?
 
