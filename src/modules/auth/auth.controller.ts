@@ -8,7 +8,7 @@ import ApiError from "../../utils/ApiError.js";
 
 import type { GoogleLoginBody } from "./auth.schema.js";
 import { loginWithGoogle } from "./auth.service.js";
-import type { AuthenticatedRequest, GoogleLoginResult } from "./auth.types.js";
+import type { AuthenticatedRequest } from "./auth.types.js";
 
 const getAuthCookieOptions = (): CookieOptions => ({
   httpOnly: true,
@@ -22,11 +22,11 @@ export const googleLogin = asyncHandler(
   async (req: Request<unknown, unknown, GoogleLoginBody>, res: Response) => {
     const { idToken } = req.body;
 
-    const result: GoogleLoginResult = await loginWithGoogle(idToken);
+    const userId = await loginWithGoogle(idToken);
 
     const token = jwt.sign(
       {
-        sub: result.userId,
+        sub: userId,
       },
       env.JWT_SECRET,
       {
@@ -45,19 +45,16 @@ export const googleLogin = asyncHandler(
   },
 );
 
-export const getMe = asyncHandler(
+export const checkSession = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
-    const user = req.authUser;
-
-    if (!user) {
+    if (!req.authUser) {
       throw ApiError.unauthorized("Authentication required.");
     }
 
     return sendResponse({
       res,
       statusCode: 200,
-      message: "Current user fetched successfully.",
-      data: user,
+      message: "Authenticated.",
     });
   },
 );

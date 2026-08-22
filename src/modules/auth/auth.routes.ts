@@ -2,7 +2,7 @@ import { Router } from "express";
 
 import { validateRequest } from "../../common/validateRequest.js";
 
-import { getMe, googleLogin, logout } from "./auth.controller.js";
+import { checkSession, googleLogin, logout } from "./auth.controller.js";
 import { requireAuth, requireUser } from "./auth.middleware.js";
 import { googleLoginBodySchema } from "./auth.schema.js";
 
@@ -16,7 +16,7 @@ authRoutes.post(
   googleLogin,
 );
 
-authRoutes.get("/me", requireAuth, requireUser, getMe);
+authRoutes.get("/session", requireAuth, requireUser, checkSession);
 
 authRoutes.post("/logout", logout);
 

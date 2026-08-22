@@ -4,7 +4,7 @@ import { env } from "../../config/env.js";
 import { prisma } from "../../config/prisma.js";
 import type { Prisma } from "../../generated/prisma/client.js";
 import ApiError from "../../utils/ApiError.js";
-import type { AuthUser, GoogleLoginResult } from "./auth.types.js";
+import type { AuthUser } from "./auth.types.js";
 
 /**
  * Verifies Google ID token, ensures user exists (or creates/syncs profile),
@@ -24,9 +24,7 @@ const AUTH_USER_SELECT = {
  * Verifies the Google ID token, creates/synchronizes the user,
  * and returns the internal user ID for session creation.
  */
-export async function loginWithGoogle(
-  idToken: string,
-): Promise<GoogleLoginResult> {
+export async function loginWithGoogle(idToken: string): Promise<string> {
   const trimmedToken = idToken?.trim();
 
   if (!trimmedToken) {
@@ -100,9 +98,7 @@ export async function loginWithGoogle(
       });
     }
 
-    return {
-      userId: user.id,
-    };
+    return user.id;
   }
 
   const existingEmailUser = await prisma.user.findUnique({
@@ -131,9 +127,7 @@ export async function loginWithGoogle(
     select: AUTH_USER_SELECT,
   });
 
-  return {
-    userId: user.id,
-  };
+  return user.id;
 }
 
 /**
