@@ -5,10 +5,13 @@ import { sendResponse } from "../../common/sendResponse.js";
 import ApiError from "../../utils/ApiError.js";
 import type { AuthenticatedRequest } from "../auth/auth.types.js";
 
-import type { CreatePlayerBody } from "./player.schema.js";
-import { createPlayerForUser, hasPlayerProfile } from "./player.service.js";
+import type { CreateOrganizationBody } from "./organization.schema.js";
+import {
+  createOrganizationForUser,
+  hasOrganizationProfile,
+} from "./organization.service.js";
 
-export const getMyPlayer = asyncHandler(
+export const getMyOrganization = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.auth?.userId;
 
@@ -16,12 +19,12 @@ export const getMyPlayer = asyncHandler(
       throw ApiError.unauthorized("Authentication required.");
     }
 
-    const onboarded = await hasPlayerProfile(userId);
+    const onboarded = await hasOrganizationProfile(userId);
 
     return sendResponse({
       res,
       statusCode: 200,
-      message: "Player onboarding status fetched successfully.",
+      message: "Organization onboarding status fetched successfully.",
       data: {
         onboarded,
       },
@@ -29,9 +32,9 @@ export const getMyPlayer = asyncHandler(
   },
 );
 
-export const createPlayer = asyncHandler(
+export const createOrganization = asyncHandler(
   async (
-    req: AuthenticatedRequest<unknown, unknown, CreatePlayerBody>,
+    req: AuthenticatedRequest<unknown, unknown, CreateOrganizationBody>,
     res: Response,
   ) => {
     const user = req.authUser;
@@ -40,12 +43,12 @@ export const createPlayer = asyncHandler(
       throw ApiError.unauthorized("Authentication required.");
     }
 
-    await createPlayerForUser(user.id, user.avatarUrl, req.body);
+    await createOrganizationForUser(user.id, user.avatarUrl, req.body);
 
     return sendResponse({
       res,
       statusCode: 201,
-      message: "Player profile created successfully.",
+      message: "Organization profile created successfully.",
     });
   },
 );

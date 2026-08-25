@@ -17,8 +17,14 @@ export interface AuthUser {
   avatarUrl: string | null;
 }
 
+export enum AUTH_PORTAL {
+  PLAYER = "player",
+  ORGANIZATION = "organization",
+}
+
 export interface GoogleLoginResult {
   userId: string;
+  portal: AUTH_PORTAL;
 }
 
 export interface AuthenticatedRequest<

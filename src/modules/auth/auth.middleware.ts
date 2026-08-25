@@ -4,7 +4,12 @@ import jwt from "jsonwebtoken";
 import { env } from "../../config/env.js";
 import ApiError from "../../utils/ApiError.js";
 import { getCurrentUser } from "./auth.service.js";
-import type { AuthenticatedRequest } from "./auth.types.js";
+import { AUTH_PORTAL, type AuthenticatedRequest } from "./auth.types.js";
+
+interface JwtSessionPayload extends jwt.JwtPayload {
+  sub: string;
+  portal: AUTH_PORTAL;
+}
 
 /**
  * Extracts JWT token from either the HTTP-only cookie or the Authorization Bearer header.
@@ -29,7 +34,7 @@ function extractToken(req: Request): string | null {
 
 /**
  * Middleware that strictly verifies JWT authentication from cookie or Authorization header.
- * Attaches `{ userId }` to `req.auth`.
+ * Validates sub (userId) and portal claims, then attaches `{ userId, portal }` to `req.auth`.
  */
 export function requireAuth(
   req: AuthenticatedRequest,
@@ -46,10 +51,11 @@ export function requireAuth(
   try {
     const payload = jwt.verify(token, env.JWT_SECRET, {
       algorithms: ["HS256"],
-    });
+    }) as JwtSessionPayload;
 
     if (
-      typeof payload === "string" ||
+      !payload ||
+      typeof payload !== "object" ||
       typeof payload.sub !== "string" ||
       payload.sub.trim().length === 0
     ) {
@@ -57,8 +63,15 @@ export function requireAuth(
       return;
     }
 
+    const validPortals = Object.values(AUTH_PORTAL);
+    if (!validPortals.includes(payload.portal)) {
+      next(ApiError.unauthorized("Invalid session token portal claim."));
+      return;
+    }
+
     req.auth = {
       userId: payload.sub.trim(),
+      portal: payload.portal,
     };
 
     next();
@@ -81,29 +94,47 @@ export function requireAuth(
  * Middleware that loads the full user profile from database based on `req.auth.userId`.
  * Attaches user to `req.authUser`. Must be placed after `requireAuth`.
  */
-export async function requireUser(
-  req: AuthenticatedRequest,
-  _res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    if (req.authUser) {
+function requirePortalUser(requiredPortal: AUTH_PORTAL) {
+  return async (
+    req: AuthenticatedRequest,
+    _res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const auth = req.auth;
+
+      if (!auth) {
+        next(ApiError.unauthorized("Authentication required."));
+        return;
+      }
+
+      if (auth.portal !== requiredPortal) {
+        next(
+          ApiError.unauthorized(
+            `You are not authorized to access the ${requiredPortal} portal.`,
+          ),
+        );
+        return;
+      }
+
+      if (req.authUser) {
+        next();
+        return;
+      }
+
+      const user = await getCurrentUser(auth.userId);
+
+      req.authUser = user;
+
       next();
-      return;
+    } catch (error) {
+      next(error);
     }
-
-    const userId = req.auth?.userId;
-
-    if (!userId) {
-      next(ApiError.unauthorized("Authentication required."));
-      return;
-    }
-
-    const user = await getCurrentUser(userId);
-
-    req.authUser = user;
-    next();
-  } catch (error) {
-    next(error);
-  }
+  };
 }
+
+export const requirePlayerUser = requirePortalUser(AUTH_PORTAL.PLAYER);
+
+export const requireOrganizationUser = requirePortalUser(
+  AUTH_PORTAL.ORGANIZATION,
+);
