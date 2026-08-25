@@ -1,5 +1,8 @@
 import type { Request } from "express";
 
+import type { ParamsDictionary } from "express-serve-static-core";
+import type { ParsedQs } from "qs";
+
 export interface GoogleProfile {
   googleId: string;
   email: string;
@@ -14,11 +17,22 @@ export interface AuthUser {
   avatarUrl: string | null;
 }
 
-export interface GoogleLoginResult {
-  userId: string;
+export enum AUTH_PORTAL {
+  PLAYER = "player",
+  ORGANIZATION = "organization",
 }
 
-export interface AuthenticatedRequest extends Request {
+export interface GoogleLoginResult {
+  userId: string;
+  portal: AUTH_PORTAL;
+}
+
+export interface AuthenticatedRequest<
+  P = ParamsDictionary,
+  ResBody = unknown,
+  ReqBody = unknown,
+  ReqQuery = ParsedQs,
+> extends Request<P, ResBody, ReqBody, ReqQuery> {
   auth?: GoogleLoginResult;
   authUser?: AuthUser;
 }

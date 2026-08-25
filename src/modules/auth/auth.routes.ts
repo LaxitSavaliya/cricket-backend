@@ -2,21 +2,45 @@ import { Router } from "express";
 
 import { validateRequest } from "../../common/validateRequest.js";
 
-import { getMe, googleLogin, logout } from "./auth.controller.js";
-import { requireAuth, requireUser } from "./auth.middleware.js";
+import {
+  checkSession,
+  logout,
+  organizationGoogleLogin,
+  playerGoogleLogin,
+} from "./auth.controller.js";
+import {
+  requireAuth,
+  requireOrganizationUser,
+  requirePlayerUser,
+} from "./auth.middleware.js";
 import { googleLoginBodySchema } from "./auth.schema.js";
 
 const authRoutes: Router = Router();
 
 authRoutes.post(
-  "/google",
+  "/player/google",
   validateRequest({
     body: googleLoginBodySchema,
   }),
-  googleLogin,
+  playerGoogleLogin,
 );
 
-authRoutes.get("/me", requireAuth, requireUser, getMe);
+authRoutes.post(
+  "/organization/google",
+  validateRequest({
+    body: googleLoginBodySchema,
+  }),
+  organizationGoogleLogin,
+);
+
+authRoutes.get("/player/session", requireAuth, requirePlayerUser, checkSession);
+
+authRoutes.get(
+  "/organization/session",
+  requireAuth,
+  requireOrganizationUser,
+  checkSession,
+);
 
 authRoutes.post("/logout", logout);
 

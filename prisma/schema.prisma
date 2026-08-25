@@ -147,12 +147,38 @@ model User {
   name      String? // Google display name (optional prefill for Player.name)
   avatarUrl String? // Google profile picture (optional prefill for Player.photoUrl)
 
-  player Player?
+  player       Player?
+  organization Organization?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("users")
+}
+
+model Organization {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  displayName String?
+  slug        String  @unique
+  logoUrl     String?
+
+  city  String?
+  state String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([city])
+  @@index([state])
+  @@map("organizations")
 }
 
 model Player {
