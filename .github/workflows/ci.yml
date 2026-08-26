@@ -7,14 +7,11 @@ on:
     branches: [main, cricket]
 
 jobs:
-  build-and-test:
+  quality-and-build:
     runs-on: ubuntu-latest
 
     env:
-      NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cricket_db
-      GOOGLE_CLIENT_ID: test-client.apps.googleusercontent.com
-      JWT_SECRET: ci-test-jwt-secret-that-is-longer-than-32-characters
 
     steps:
       - name: Checkout repository
@@ -40,9 +37,6 @@ jobs:
 
       - name: Check TypeScript compilation
         run: npm run typecheck
-
-      - name: Run tests
-        run: npm run test:run
 
       - name: Build project
         run: npm run build

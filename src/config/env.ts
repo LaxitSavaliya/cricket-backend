@@ -49,9 +49,7 @@ const booleanFromString = (value: unknown): unknown => {
 
 const envSchema = z
   .object({
-    NODE_ENV: z
-      .enum(["development", "production", "test"])
-      .default("development"),
+    NODE_ENV: z.enum(["development", "production"]).default("development"),
 
     PORT: z.coerce.number().int().positive().max(65535).default(5000),
 
@@ -187,7 +185,6 @@ const data = parsedEnv.data;
 
 const isDevelopment = data.NODE_ENV === "development";
 const isProduction = data.NODE_ENV === "production";
-const isTest = data.NODE_ENV === "test";
 
 export const env = Object.freeze({
   ...data,
@@ -196,7 +193,6 @@ export const env = Object.freeze({
 
   isDevelopment,
   isProduction,
-  isTest,
 });
 
 export type Env = typeof env;
