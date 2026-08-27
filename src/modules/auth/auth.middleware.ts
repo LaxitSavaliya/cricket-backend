@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 
 import { env } from "../../config/env.js";
 import ApiError from "../../utils/ApiError.js";
+import { findOrganizationProfileId } from "../organization/organization.service.js";
+import { findPlayerProfileId } from "../player/player.service.js";
 import { getCurrentUser } from "./auth.service.js";
 import { AUTH_PORTAL, type AuthenticatedRequest } from "./auth.types.js";
 
@@ -138,3 +140,64 @@ export const requirePlayerUser = requirePortalUser(AUTH_PORTAL.PLAYER);
 export const requireOrganizationUser = requirePortalUser(
   AUTH_PORTAL.ORGANIZATION,
 );
+
+/**
+ * Middleware that ensures the authenticated user has completed player onboarding.
+ * Attaches the player profile ID to `req.playerId`.
+ * Must be placed after `requireAuth`.
+ */
+export async function requirePlayerUserOnboarded(
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const userId = req.authUser?.id ?? req.auth?.userId;
+
+    if (!userId) {
+      next(ApiError.unauthorized("Authentication required."));
+      return;
+    }
+
+    const playerProfile = await findPlayerProfileId(userId);
+
+    if (!playerProfile) {
+      next(ApiError.forbidden("Player profile not found."));
+      return;
+    }
+
+    req.playerId = playerProfile.id;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function requireOrganizationUserOnboarded(
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const userId = req.authUser?.id ?? req.auth?.userId;
+
+    if (!userId) {
+      next(ApiError.unauthorized("Authentication required."));
+      return;
+    }
+
+    const organizationProfile = await findOrganizationProfileId(userId);
+
+    if (!organizationProfile) {
+      next(ApiError.forbidden("Organization profile not found."));
+      return;
+    }
+
+    req.organizationId = organizationProfile.id;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+}

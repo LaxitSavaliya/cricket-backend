@@ -13,6 +13,7 @@ playerRoutes.get(
   requirePlayerUser,
   getMyPlayer,
 );
+
 playerRoutes.post(
   "/create-player",
   requireAuth,

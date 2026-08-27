@@ -6,7 +6,7 @@ import ApiError from "../../utils/ApiError.js";
 import type { AuthenticatedRequest } from "../auth/auth.types.js";
 
 import type { CreatePlayerBody } from "./player.schema.js";
-import { createPlayerForUser, hasPlayerProfile } from "./player.service.js";
+import { createPlayerForUser, findPlayerProfileId } from "./player.service.js";
 
 export const getMyPlayer = asyncHandler(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -16,14 +16,14 @@ export const getMyPlayer = asyncHandler(
       throw ApiError.unauthorized("Authentication required.");
     }
 
-    const onboarded = await hasPlayerProfile(userId);
+    const onboarded = await findPlayerProfileId(userId);
 
     return sendResponse({
       res,
       statusCode: 200,
       message: "Player onboarding status fetched successfully.",
       data: {
-        onboarded,
+        onboarded: Boolean(onboarded),
       },
     });
   },

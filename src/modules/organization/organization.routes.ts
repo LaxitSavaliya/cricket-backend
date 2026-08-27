@@ -19,6 +19,7 @@ organizationRoutes.get(
   requireOrganizationUser,
   getMyOrganization,
 );
+
 organizationRoutes.post(
   "/create-organization",
   requireAuth,

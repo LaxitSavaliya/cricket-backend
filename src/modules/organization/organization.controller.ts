@@ -8,7 +8,7 @@ import type { AuthenticatedRequest } from "../auth/auth.types.js";
 import type { CreateOrganizationBody } from "./organization.schema.js";
 import {
   createOrganizationForUser,
-  hasOrganizationProfile,
+  findOrganizationProfileId,
 } from "./organization.service.js";
 
 export const getMyOrganization = asyncHandler(
@@ -19,14 +19,14 @@ export const getMyOrganization = asyncHandler(
       throw ApiError.unauthorized("Authentication required.");
     }
 
-    const onboarded = await hasOrganizationProfile(userId);
+    const onboarded = await findOrganizationProfileId(userId);
 
     return sendResponse({
       res,
       statusCode: 200,
       message: "Organization onboarding status fetched successfully.",
       data: {
-        onboarded,
+        onboarded: Boolean(onboarded),
       },
     });
   },

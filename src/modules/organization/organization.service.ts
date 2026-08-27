@@ -3,17 +3,23 @@ import ApiError from "../../utils/ApiError.js";
 
 import type { CreateOrganizationBody } from "./organization.schema.js";
 
-export async function hasOrganizationProfile(userId: string): Promise<boolean> {
-  const organization = await prisma.organization.findUnique({
+export async function findOrganizationProfileId(
+  userId: string,
+): Promise<{ id: string } | null> {
+  const trimmedUserId = userId?.trim();
+
+  if (!trimmedUserId) {
+    return null;
+  }
+
+  return await prisma.organization.findUnique({
     where: {
-      userId,
+      userId: trimmedUserId,
     },
     select: {
       id: true,
     },
   });
-
-  return organization !== null;
 }
 
 function createSlug(value: string): string {

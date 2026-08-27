@@ -160,7 +160,7 @@ model Organization {
   id String @id @default(cuid())
 
   userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   name        String
   displayName String?
@@ -172,6 +172,8 @@ model Organization {
 
   isActive Boolean @default(true)
 
+  tournaments Tournament[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -179,6 +181,29 @@ model Organization {
   @@index([city])
   @@index([state])
   @@map("organizations")
+}
+
+model Tournament {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  name    String
+  slug    String  @unique
+  logoUrl String?
+
+  city  String?
+  state String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  teams     Team[]
+
+  @@index([name])
+  @@index([city])
+  @@index([state])
+  @@map("tournaments")
 }
 
 model Player {
@@ -215,7 +240,11 @@ model Player {
 }
 
 model Team {
-  id       String  @id @default(cuid())
+  id String @id @default(cuid())
+
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Restrict)
+
   teamName String  @unique
   logoUrl  String?
   slug     String  @unique
@@ -279,7 +308,7 @@ model MatchPlayer {
   teamId   String
   playerId String
 
-  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  match  Match  @relation(fields: [matchId], references: [id], onDelete: Restrict)
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Restrict)
   player Player @relation(fields: [playerId], references: [id], onDelete: Restrict)
 
@@ -386,7 +415,7 @@ model MatchInning {
   matchId String
   teamId  String
 
-  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Restrict)
   team  Team  @relation(fields: [teamId], references: [id], onDelete: Restrict)
 
   inningsNo MatchInningNo
@@ -416,7 +445,7 @@ model Ball {
   id String @id @default(cuid())
 
   inningId String
-  inning   MatchInning @relation(fields: [inningId], references: [id], onDelete: Cascade)
+  inning   MatchInning @relation(fields: [inningId], references: [id], onDelete: Restrict)
 
   // Every delivery event in this innings.
   // This increases even for wide/no-ball/dead-ball.

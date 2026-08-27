@@ -35,4 +35,6 @@ export interface AuthenticatedRequest<
 > extends Request<P, ResBody, ReqBody, ReqQuery> {
   auth?: GoogleLoginResult;
   authUser?: AuthUser;
+  playerId?: string | null;
+  organizationId?: string | null;
 }

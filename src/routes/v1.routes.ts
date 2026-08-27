@@ -4,6 +4,7 @@ import authRoutes from "../modules/auth/auth.routes.js";
 import matchRoutes from "../modules/match/match.routes.js";
 import organizationRoutes from "../modules/organization/organization.routes.js";
 import playerRoutes from "../modules/player/player.routes.js";
+import tournamentRoutes from "../modules/tournament/tournament.routes.js";
 
 const router: Router = Router();
 
@@ -18,5 +19,6 @@ router.use("/matches", matchRoutes);
 router.use("/auth", authRoutes);
 router.use("/players", playerRoutes);
 router.use("/organization", organizationRoutes);
+router.use("/tournaments", tournamentRoutes);
 
 export default router;

@@ -3,17 +3,23 @@ import ApiError from "../../utils/ApiError.js";
 
 import type { CreatePlayerBody } from "./player.schema.js";
 
-export async function hasPlayerProfile(userId: string): Promise<boolean> {
-  const player = await prisma.player.findUnique({
+export async function findPlayerProfileId(
+  userId: string,
+): Promise<{ id: string } | null> {
+  const trimmedUserId = userId?.trim();
+
+  if (!trimmedUserId) {
+    return null;
+  }
+
+  return prisma.player.findUnique({
     where: {
-      userId,
+      userId: trimmedUserId,
     },
     select: {
       id: true,
     },
   });
-
-  return player !== null;
 }
 
 function createSlug(value: string): string {

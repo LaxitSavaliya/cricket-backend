@@ -8,8 +8,10 @@ import matchPlayers, {
   type matchPlayerType,
 } from "./seed-data/matchPlayers.js";
 import { matchGenerationOptions } from "./seed-data/options.js";
+import organizations from "./seed-data/organizations.js";
 import players from "./seed-data/players.js";
 import teams from "./seed-data/teams.js";
+import tournaments from "./seed-data/tournaments.js";
 import users from "./seed-data/users.js";
 import { getMatchDataForMatch } from "./seed-utils/generate-matchData.js";
 
@@ -84,10 +86,22 @@ const createChunks = <T>(values: readonly T[], chunkSize: number): T[][] => {
 };
 
 const validateSourceSeedData = (): void => {
+  assertNotEmpty(organizations, "Organization");
+  assertNotEmpty(tournaments, "Tournament");
   assertNotEmpty(players, "Player");
   assertNotEmpty(teams, "Team");
   assertNotEmpty(matches, "Match");
   assertNotEmpty(matchPlayers, "Match-player");
+
+  assertUniqueStrings(
+    organizations.map((org) => org.id),
+    "Organization IDs",
+  );
+
+  assertUniqueStrings(
+    tournaments.map((tour) => tour.id),
+    "Tournament IDs",
+  );
 
   assertUniqueStrings(
     players.map((player) => player.id),
@@ -258,6 +272,8 @@ const seedDatabase = async (): Promise<void> => {
        * Use `npm run db:reset` to clean and seed together.
        */
       const existingUserCount = await transaction.user.count();
+      const existingOrgCount = await transaction.organization.count();
+      const existingTourCount = await transaction.tournament.count();
       const existingTeamCount = await transaction.team.count();
       const existingPlayerCount = await transaction.player.count();
       const existingMatchCount = await transaction.match.count();
@@ -267,6 +283,8 @@ const seedDatabase = async (): Promise<void> => {
 
       const databaseContainsSeedData =
         existingUserCount > 0 ||
+        existingOrgCount > 0 ||
+        existingTourCount > 0 ||
         existingTeamCount > 0 ||
         existingPlayerCount > 0 ||
         existingMatchCount > 0 ||
@@ -290,6 +308,18 @@ const seedDatabase = async (): Promise<void> => {
 
       const usersResult = await transaction.user.createMany({
         data: users,
+      });
+
+      console.log("Seeding organizations...");
+
+      const orgsResult = await transaction.organization.createMany({
+        data: organizations,
+      });
+
+      console.log("Seeding tournaments...");
+
+      const tournamentsResult = await transaction.tournament.createMany({
+        data: tournaments,
       });
 
       console.log("Seeding teams...");
@@ -341,6 +371,8 @@ const seedDatabase = async (): Promise<void> => {
 
       return {
         users: usersResult.count,
+        organizations: orgsResult.count,
+        tournaments: tournamentsResult.count,
         teams: teamsResult.count,
         players: playersResult.count,
         matches: matchesResult.count,
