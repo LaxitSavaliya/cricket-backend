@@ -2,6 +2,7 @@ import type { Prisma } from "../../generated/prisma/client.js";
 
 import { prisma } from "../../config/prisma.js";
 
+import type { CreateTournamentBody } from "./tournament.schema.js";
 import {
   tournamentSelect,
   type TournamentListItem,
@@ -19,8 +20,6 @@ const formatTournamentListItem = (
   tournament: TournamentQueryResult,
 ): TournamentListItem => {
   return {
-    id: tournament.id,
-    organizationId: tournament.organizationId,
     name: tournament.name,
     slug: tournament.slug,
     logoUrl: tournament.logoUrl,
@@ -140,3 +139,51 @@ export const getAllTournaments = async (
     hasMore: nextOffset !== null,
   };
 };
+
+function createSlug(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function generateUniqueTournamentSlug(name: string): Promise<string> {
+  const baseSlug = createSlug(name);
+
+  let slug = baseSlug;
+  let suffix = 1;
+
+  while (
+    await prisma.tournament.findUnique({
+      where: { slug },
+      select: { id: true },
+    })
+  ) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  return slug;
+}
+
+export async function createTournamentForOrganization(
+  organizationId: string,
+  input: CreateTournamentBody,
+): Promise<TournamentListItem> {
+  const slug = await generateUniqueTournamentSlug(input.name);
+
+  const tournament = await prisma.tournament.create({
+    data: {
+      organizationId,
+      name: input.name,
+      slug,
+      logoUrl: input.logoUrl ?? null,
+      city: input.city ?? null,
+      state: input.state ?? null,
+    },
+    select: tournamentSelect,
+  });
+
+  return formatTournamentListItem(tournament);
+}

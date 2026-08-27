@@ -1,8 +1,6 @@
 import type { Prisma } from "../../generated/prisma/client.js";
 
 export const tournamentSelect = {
-  id: true,
-  organizationId: true,
   name: true,
   slug: true,
   logoUrl: true,
@@ -22,8 +20,6 @@ export type TournamentQueryResult = Prisma.TournamentGetPayload<{
 }>;
 
 export type TournamentListItem = {
-  id: string;
-  organizationId: string;
   name: string;
   slug: string;
   logoUrl: string | null;

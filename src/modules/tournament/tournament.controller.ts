@@ -6,9 +6,14 @@ import ApiError from "../../utils/ApiError.js";
 
 import type { AuthenticatedRequest } from "../auth/auth.types.js";
 
-import { getAllTournaments } from "./tournament.service.js";
+import {
+  createTournamentForOrganization,
+  getAllTournaments,
+} from "./tournament.service.js";
 
+import type { CreateTournamentBody } from "./tournament.schema.js";
 import type {
+  TournamentListItem,
   TournamentListResult,
   TournamentSortBy,
   TournamentSortOrder,
@@ -80,6 +85,31 @@ export const getTournaments = asyncHandler(
       statusCode: 200,
       message: "Tournaments fetched successfully.",
       data: result,
+    });
+  },
+);
+
+export const createTournament = asyncHandler(
+  async (
+    req: AuthenticatedRequest<unknown, unknown, CreateTournamentBody>,
+    res: Response,
+  ) => {
+    const organizationId = req.organizationId;
+
+    if (!organizationId) {
+      throw ApiError.forbidden("Organization profile not found.");
+    }
+
+    const tournament = await createTournamentForOrganization(
+      organizationId,
+      req.body,
+    );
+
+    return sendResponse<TournamentListItem>({
+      res,
+      statusCode: 201,
+      message: "Tournament created successfully.",
+      data: tournament,
     });
   },
 );
