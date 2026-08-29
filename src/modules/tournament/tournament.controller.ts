@@ -9,6 +9,7 @@ import type { AuthenticatedRequest } from "../auth/auth.types.js";
 import {
   createTournamentForOrganization,
   getAllTournaments,
+  getTeamsForTournament,
 } from "./tournament.service.js";
 
 import type { CreateTournamentBody } from "./tournament.schema.js";
@@ -17,6 +18,7 @@ import type {
   TournamentListResult,
   TournamentSortBy,
   TournamentSortOrder,
+  TournamentTeamItem,
 } from "./tournament.types.js";
 
 const ALLOWED_SORT_FIELDS = ["createdAt", "name", "teamsCount"] as const;
@@ -110,6 +112,34 @@ export const createTournament = asyncHandler(
       statusCode: 201,
       message: "Tournament created successfully.",
       data: tournament,
+    });
+  },
+);
+
+type TournamentTeamsParams = {
+  slug: string;
+};
+
+export const getTournamentTeams = asyncHandler(
+  async (req: AuthenticatedRequest<TournamentTeamsParams>, res: Response) => {
+    const organizationId = req.organizationId;
+    const tournamentSlug = req.params.slug?.trim();
+
+    if (!organizationId) {
+      throw ApiError.forbidden("Organization profile not found.");
+    }
+
+    if (!tournamentSlug) {
+      throw ApiError.badRequest("Tournament slug is required.");
+    }
+
+    const teams = await getTeamsForTournament(organizationId, tournamentSlug);
+
+    return sendResponse<TournamentTeamItem[]>({
+      res,
+      statusCode: 200,
+      message: "Tournament teams fetched successfully.",
+      data: teams,
     });
   },
 );

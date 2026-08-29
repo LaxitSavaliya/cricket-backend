@@ -6,6 +6,7 @@ import {
 
 export type matchType = {
   id: string;
+  tournamentId: string;
   title: string;
   slug: string;
   matchFormat: MatchFormat;
@@ -34,6 +35,7 @@ const matches: matchType[] = [
   // 1. India vs England
   {
     id: "201",
+    tournamentId: "tour-1",
     title: "India vs England - T10",
     slug: "india-vs-england-t10",
     matchFormat: MatchFormat.T10,
@@ -49,6 +51,7 @@ const matches: matchType[] = [
   // 2. India vs Australia
   {
     id: "202",
+    tournamentId: "tour-1",
     title: "India vs Australia - T10",
     slug: "india-vs-australia-t10",
     matchFormat: MatchFormat.T10,
@@ -64,6 +67,7 @@ const matches: matchType[] = [
   // 3. India vs New Zealand
   {
     id: "203",
+    tournamentId: "tour-1",
     title: "India vs New Zealand - T10",
     slug: "india-vs-new-zealand-t10",
     matchFormat: MatchFormat.T10,
@@ -79,6 +83,7 @@ const matches: matchType[] = [
   // 4. India vs Sri Lanka
   {
     id: "204",
+    tournamentId: "tour-1",
     title: "India vs Sri Lanka - T10",
     slug: "india-vs-sri-lanka-t10",
     matchFormat: MatchFormat.T10,
@@ -94,6 +99,7 @@ const matches: matchType[] = [
   // 5. India vs South Africa
   {
     id: "205",
+    tournamentId: "tour-1",
     title: "India vs South Africa - T10",
     slug: "india-vs-south-africa-t10",
     matchFormat: MatchFormat.T10,
@@ -109,6 +115,7 @@ const matches: matchType[] = [
   // 6. India vs West Indies
   {
     id: "206",
+    tournamentId: "tour-1",
     title: "India vs West Indies - T10",
     slug: "india-vs-west-indies-t10",
     matchFormat: MatchFormat.T10,
@@ -124,6 +131,7 @@ const matches: matchType[] = [
   // 7. India vs Ireland
   {
     id: "207",
+    tournamentId: "tour-1",
     title: "India vs Ireland - T10",
     slug: "india-vs-ireland-t10",
     matchFormat: MatchFormat.T10,
@@ -140,6 +148,7 @@ const matches: matchType[] = [
   // 8. England vs Australia
   {
     id: "208",
+    tournamentId: "tour-1",
     title: "England vs Australia - T10",
     slug: "england-vs-australia-t10",
     matchFormat: MatchFormat.T10,
@@ -155,6 +164,7 @@ const matches: matchType[] = [
   // 9. England vs New Zealand
   {
     id: "209",
+    tournamentId: "tour-1",
     title: "England vs New Zealand - T10",
     slug: "england-vs-new-zealand-t10",
     matchFormat: MatchFormat.T10,
@@ -170,6 +180,7 @@ const matches: matchType[] = [
   // 10. England vs Sri Lanka
   {
     id: "210",
+    tournamentId: "tour-1",
     title: "England vs Sri Lanka - T10",
     slug: "england-vs-sri-lanka-t10",
     matchFormat: MatchFormat.T10,
@@ -185,6 +196,7 @@ const matches: matchType[] = [
   // 11. England vs South Africa
   {
     id: "211",
+    tournamentId: "tour-1",
     title: "England vs South Africa - T10",
     slug: "england-vs-south-africa-t10",
     matchFormat: MatchFormat.T10,
@@ -200,6 +212,7 @@ const matches: matchType[] = [
   // 12. England vs West Indies
   {
     id: "212",
+    tournamentId: "tour-1",
     title: "England vs West Indies - T10",
     slug: "england-vs-west-indies-t10",
     matchFormat: MatchFormat.T10,
@@ -215,6 +228,7 @@ const matches: matchType[] = [
   // 13. England vs Ireland
   {
     id: "213",
+    tournamentId: "tour-1",
     title: "England vs Ireland - T10",
     slug: "england-vs-ireland-t10",
     matchFormat: MatchFormat.T10,
@@ -231,6 +245,7 @@ const matches: matchType[] = [
   // 14. Australia vs New Zealand
   {
     id: "214",
+    tournamentId: "tour-1",
     title: "Australia vs New Zealand - T10",
     slug: "australia-vs-new-zealand-t10",
     matchFormat: MatchFormat.T10,
@@ -246,6 +261,7 @@ const matches: matchType[] = [
   // 15. Australia vs Sri Lanka
   {
     id: "215",
+    tournamentId: "tour-1",
     title: "Australia vs Sri Lanka - T10",
     slug: "australia-vs-sri-lanka-t10",
     matchFormat: MatchFormat.T10,
@@ -261,6 +277,7 @@ const matches: matchType[] = [
   // 16. Australia vs South Africa
   {
     id: "216",
+    tournamentId: "tour-1",
     title: "Australia vs South Africa - T10",
     slug: "australia-vs-south-africa-t10",
     matchFormat: MatchFormat.T10,
@@ -276,6 +293,7 @@ const matches: matchType[] = [
   // 17. Australia vs West Indies
   {
     id: "217",
+    tournamentId: "tour-1",
     title: "Australia vs West Indies - T10",
     slug: "australia-vs-west-indies-t10",
     matchFormat: MatchFormat.T10,
@@ -291,6 +309,7 @@ const matches: matchType[] = [
   // 18. Australia vs Ireland
   {
     id: "218",
+    tournamentId: "tour-1",
     title: "Australia vs Ireland - T10",
     slug: "australia-vs-ireland-t10",
     matchFormat: MatchFormat.T10,
@@ -307,6 +326,7 @@ const matches: matchType[] = [
   // 19. New Zealand vs Sri Lanka
   {
     id: "219",
+    tournamentId: "tour-1",
     title: "New Zealand vs Sri Lanka - T10",
     slug: "new-zealand-vs-sri-lanka-t10",
     matchFormat: MatchFormat.T10,
@@ -322,6 +342,7 @@ const matches: matchType[] = [
   // 20. New Zealand vs South Africa
   {
     id: "220",
+    tournamentId: "tour-1",
     title: "New Zealand vs South Africa - T10",
     slug: "new-zealand-vs-south-africa-t10",
     matchFormat: MatchFormat.T10,
@@ -337,6 +358,7 @@ const matches: matchType[] = [
   // 21. New Zealand vs West Indies
   {
     id: "221",
+    tournamentId: "tour-1",
     title: "New Zealand vs West Indies - T10",
     slug: "new-zealand-vs-west-indies-t10",
     matchFormat: MatchFormat.T10,
@@ -352,6 +374,7 @@ const matches: matchType[] = [
   // 22. New Zealand vs Ireland
   {
     id: "222",
+    tournamentId: "tour-1",
     title: "New Zealand vs Ireland - T10",
     slug: "new-zealand-vs-ireland-t10",
     matchFormat: MatchFormat.T10,
@@ -368,6 +391,7 @@ const matches: matchType[] = [
   // 23. Sri Lanka vs South Africa
   {
     id: "223",
+    tournamentId: "tour-1",
     title: "Sri Lanka vs South Africa - T10",
     slug: "sri-lanka-vs-south-africa-t10",
     matchFormat: MatchFormat.T10,
@@ -383,6 +407,7 @@ const matches: matchType[] = [
   // 24. Sri Lanka vs West Indies
   {
     id: "224",
+    tournamentId: "tour-1",
     title: "Sri Lanka vs West Indies - T10",
     slug: "sri-lanka-vs-west-indies-t10",
     matchFormat: MatchFormat.T10,
@@ -398,6 +423,7 @@ const matches: matchType[] = [
   // 25. Sri Lanka vs Ireland
   {
     id: "225",
+    tournamentId: "tour-1",
     title: "Sri Lanka vs Ireland - T10",
     slug: "sri-lanka-vs-ireland-t10",
     matchFormat: MatchFormat.T10,
@@ -414,6 +440,7 @@ const matches: matchType[] = [
   // 26. South Africa vs West Indies
   {
     id: "226",
+    tournamentId: "tour-1",
     title: "South Africa vs West Indies - T10",
     slug: "south-africa-vs-west-indies-t10",
     matchFormat: MatchFormat.T10,
@@ -429,6 +456,7 @@ const matches: matchType[] = [
   // 27. South Africa vs Ireland
   {
     id: "227",
+    tournamentId: "tour-1",
     title: "South Africa vs Ireland - T10",
     slug: "south-africa-vs-ireland-t10",
     matchFormat: MatchFormat.T10,
@@ -445,6 +473,7 @@ const matches: matchType[] = [
   // 28. West Indies vs Ireland
   {
     id: "228",
+    tournamentId: "tour-1",
     title: "West Indies vs Ireland - T10",
     slug: "west-indies-vs-ireland-t10",
     matchFormat: MatchFormat.T10,

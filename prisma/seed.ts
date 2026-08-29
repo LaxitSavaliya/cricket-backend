@@ -127,6 +127,17 @@ const validateSourceSeedData = (): void => {
     matchPlayers.map((matchPlayer) => matchPlayer.id),
     "Match-player IDs",
   );
+
+  const teamIdSet = new Set(teams.map((team) => team.id));
+  for (const tournament of tournaments) {
+    for (const teamId of tournament.teamIds) {
+      if (!teamIdSet.has(teamId)) {
+        throw new Error(
+          `Tournament "${tournament.id}" references unknown team ID "${teamId}".`,
+        );
+      }
+    }
+  }
 };
 
 const validateGeneratedPlayerOrders = (
@@ -318,8 +329,18 @@ const seedDatabase = async (): Promise<void> => {
 
       console.log("Seeding tournaments...");
 
+      const tournamentRecords = tournaments.map((tournament) => ({
+        id: tournament.id,
+        organizationId: tournament.organizationId,
+        name: tournament.name,
+        slug: tournament.slug,
+        logoUrl: tournament.logoUrl,
+        city: tournament.city,
+        state: tournament.state,
+      }));
+
       const tournamentsResult = await transaction.tournament.createMany({
-        data: tournaments,
+        data: tournamentRecords,
       });
 
       console.log("Seeding teams...");
@@ -327,6 +348,21 @@ const seedDatabase = async (): Promise<void> => {
       const teamsResult = await transaction.team.createMany({
         data: teams,
       });
+
+      console.log("Linking tournaments and teams...");
+
+      for (const tournament of tournaments) {
+        if (tournament.teamIds.length > 0) {
+          await transaction.tournament.update({
+            where: { id: tournament.id },
+            data: {
+              teams: {
+                connect: tournament.teamIds.map((teamId) => ({ id: teamId })),
+              },
+            },
+          });
+        }
+      }
 
       console.log("Seeding players...");
 

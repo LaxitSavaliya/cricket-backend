@@ -6,7 +6,11 @@ import {
   requireOrganizationUser,
   requireOrganizationUserOnboarded,
 } from "../auth/auth.middleware.js";
-import { createTournament, getTournaments } from "./tournament.controller.js";
+import {
+  createTournament,
+  getTournaments,
+  getTournamentTeams,
+} from "./tournament.controller.js";
 import { createTournamentBodySchema } from "./tournament.schema.js";
 
 const tournamentRoutes: Router = Router();
@@ -28,6 +32,14 @@ tournamentRoutes.post(
     body: createTournamentBodySchema,
   }),
   createTournament,
+);
+
+tournamentRoutes.get(
+  "/:slug/teams",
+  requireAuth,
+  requireOrganizationUser,
+  requireOrganizationUserOnboarded,
+  getTournamentTeams,
 );
 
 export default tournamentRoutes;

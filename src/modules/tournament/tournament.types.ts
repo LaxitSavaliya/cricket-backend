@@ -47,3 +47,23 @@ export interface TournamentListResult {
   nextOffset: number | null;
   hasMore: boolean;
 }
+
+export const tournamentTeamSelect = {
+  teamName: true,
+  slug: true,
+  logoUrl: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.TeamSelect;
+
+export type TournamentTeamQueryResult = Prisma.TeamGetPayload<{
+  select: typeof tournamentTeamSelect;
+}>;
+
+export type TournamentTeamItem = {
+  teamName: string;
+  slug: string;
+  logoUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};

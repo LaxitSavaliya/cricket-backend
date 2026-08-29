@@ -1,16 +1,19 @@
 import type { Prisma } from "../../generated/prisma/client.js";
 
 import { prisma } from "../../config/prisma.js";
+import ApiError from "../../utils/ApiError.js";
 
 import type { CreateTournamentBody } from "./tournament.schema.js";
 import {
   tournamentSelect,
+  tournamentTeamSelect,
   type TournamentListItem,
   type TournamentListOptions,
   type TournamentListResult,
   type TournamentQueryResult,
   type TournamentSortBy,
   type TournamentSortOrder,
+  type TournamentTeamItem,
 } from "./tournament.types.js";
 
 const SMALL_LIST_LIMIT = 15;
@@ -186,4 +189,30 @@ export async function createTournamentForOrganization(
   });
 
   return formatTournamentListItem(tournament);
+}
+
+export async function getTeamsForTournament(
+  organizationId: string,
+  tournamentSlug: string,
+): Promise<TournamentTeamItem[]> {
+  const tournament = await prisma.tournament.findFirst({
+    where: {
+      organizationId,
+      slug: tournamentSlug,
+    },
+    select: {
+      teams: {
+        select: tournamentTeamSelect,
+        orderBy: {
+          teamName: "asc",
+        },
+      },
+    },
+  });
+
+  if (!tournament) {
+    throw ApiError.notFound("Tournament not found.");
+  }
+
+  return tournament.teams;
 }

@@ -6,6 +6,7 @@ export type tournamentType = {
   logoUrl: string | null;
   city: string | null;
   state: string | null;
+  teamIds: string[];
 };
 
 const tournaments: tournamentType[] = [
@@ -17,6 +18,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Mumbai",
     state: "Maharashtra",
+    teamIds: ["101", "102", "103", "104", "105", "106", "107", "108"],
   },
   {
     id: "tour-2",
@@ -26,6 +28,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Bengaluru",
     state: "Karnataka",
+    teamIds: [],
   },
   {
     id: "tour-3",
@@ -35,6 +38,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "New Delhi",
     state: "Delhi",
+    teamIds: [],
   },
   {
     id: "tour-4",
@@ -44,6 +48,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Jaipur",
     state: "Rajasthan",
+    teamIds: [],
   },
   {
     id: "tour-5",
@@ -53,6 +58,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Chennai",
     state: "Tamil Nadu",
+    teamIds: [],
   },
   {
     id: "tour-6",
@@ -62,6 +68,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Hyderabad",
     state: "Telangana",
+    teamIds: [],
   },
   {
     id: "tour-7",
@@ -71,6 +78,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Kolkata",
     state: "West Bengal",
+    teamIds: [],
   },
   {
     id: "tour-8",
@@ -80,6 +88,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Ahmedabad",
     state: "Gujarat",
+    teamIds: [],
   },
   {
     id: "tour-9",
@@ -89,6 +98,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Chandigarh",
     state: "Punjab",
+    teamIds: [],
   },
   {
     id: "tour-10",
@@ -98,6 +108,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Indore",
     state: "Madhya Pradesh",
+    teamIds: [],
   },
   {
     id: "tour-11",
@@ -107,6 +118,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Pune",
     state: "Maharashtra",
+    teamIds: [],
   },
   {
     id: "tour-12",
@@ -116,6 +128,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Bhubaneswar",
     state: "Odisha",
+    teamIds: [],
   },
   {
     id: "tour-13",
@@ -125,6 +138,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Kochi",
     state: "Kerala",
+    teamIds: [],
   },
   {
     id: "tour-14",
@@ -134,6 +148,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Lucknow",
     state: "Uttar Pradesh",
+    teamIds: [],
   },
   {
     id: "tour-15",
@@ -143,6 +158,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Dehradun",
     state: "Uttarakhand",
+    teamIds: [],
   },
   {
     id: "tour-16",
@@ -152,6 +168,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Visakhapatnam",
     state: "Andhra Pradesh",
+    teamIds: [],
   },
   {
     id: "tour-17",
@@ -161,6 +178,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Jodhpur",
     state: "Rajasthan",
+    teamIds: [],
   },
   {
     id: "tour-18",
@@ -170,6 +188,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Surat",
     state: "Gujarat",
+    teamIds: [],
   },
   {
     id: "tour-19",
@@ -179,6 +198,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Guwahati",
     state: "Assam",
+    teamIds: [],
   },
   {
     id: "tour-20",
@@ -188,6 +208,7 @@ const tournaments: tournamentType[] = [
     logoUrl: null,
     city: "Nagpur",
     state: "Maharashtra",
+    teamIds: [],
   },
 ];
 
